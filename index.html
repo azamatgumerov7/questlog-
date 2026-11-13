@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#131726">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Квест-лог">
+<title>Квест-лог тестировщика</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: HUD с грейдом сверху; на широком экране две колонки — «Прогон дня» слева, недельные квесты, карта и ачивки справа; на телефоне всё в одну колонку */
+  --bg:#131726;
+  --panel:#1B2034;
+  --panel-2:#232a45;
+  --line:#2D3454;
+  --text:#ECEFF8;
+  --muted:#8E95B6;
+  --gold:#F4B740;
+  --gold-soft:rgba(244,183,64,.14);
+  --pass:#35D49A;
+  --pass-soft:rgba(53,212,154,.13);
+  --skip:#EF7680;
+  --skip-soft:rgba(239,118,128,.12);
+  --grid:rgba(142,149,182,.055);
+  --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
+  --r:14px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;min-height:100%}
+body{
+  background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px;
+  color:var(--text);
+  font:400 15px/1.45 var(--f-body);
+  -webkit-font-smoothing:antialiased;
+  padding-top:env(safe-area-inset-top);
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default}
+a{color:var(--gold)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+.app{max-width:1100px;margin:0 auto;padding:16px 16px 72px;display:grid;gap:16px}
+
+/* top bar */
+.topbar{display:flex;align-items:center;gap:10px}
+.brand{font:700 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.brand b{color:var(--gold);font-weight:700}
+.spacer{flex:1}
+.pill{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);font:500 12px/1.2 var(--f-mono);color:var(--muted);background:rgba(27,32,52,.7);text-align:left}
+.pill i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.pill[data-s="ok"] i{background:var(--pass)}
+.pill[data-s="saving"] i{background:var(--gold);animation:blink 1s infinite}
+.pill[data-s="warn"] i{background:var(--skip)}
+.pill:hover{border-color:var(--muted)}
+@keyframes blink{50%{opacity:.25}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-weight:600;font-size:14px;text-decoration:none;color:var(--text)}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#1a1405}
+.btn.primary:hover:not(:disabled){filter:brightness(1.06)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--skip)}
+.btn:disabled{opacity:.45}
+
+.note{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:14px}
+.note span{flex:1;min-width:220px}
+.note[data-k="warn"]{border-color:rgba(239,118,128,.45);color:var(--text)}
+
+/* HUD */
+.hud{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center;padding:20px;border-radius:20px;background:linear-gradient(135deg,#1d2340 0%,#181d31 60%);border:1px solid var(--line);position:relative;overflow:hidden}
+.hud::after{content:"";position:absolute;right:-60px;top:-80px;width:260px;height:260px;border-radius:50%;background:radial-gradient(closest-side,rgba(244,183,64,.16),transparent);pointer-events:none}
+.badge{position:relative;width:112px;height:124px;display:grid;place-items:center;border:0;background:none;padding:0}
+.badge svg{position:absolute;inset:0;width:100%;height:100%}
+.badge-lvl{position:relative;font:800 46px/1 var(--f-display);color:var(--gold);font-variant-numeric:tabular-nums;margin-top:-6px}
+.badge-cap{position:absolute;bottom:22px;font:700 10px/1 var(--f-mono);letter-spacing:.2em;color:var(--muted)}
+.badge.pop .badge-lvl{animation:pop .7s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{0%{transform:scale(.6)}100%{transform:scale(1)}}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.rank{margin:4px 0 12px;font:800 clamp(26px,5vw,40px)/1.05 var(--f-display);letter-spacing:-.01em;text-wrap:balance}
+.xpbar{position:relative;height:16px;border-radius:6px;background:var(--panel-2);overflow:hidden;border:1px solid var(--line)}
+.xpfill{height:100%;width:0;background:linear-gradient(90deg,#E59A2B,var(--gold) 70%,#FFD98A);transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.xpbar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 2px),var(--bg) calc(10% - 2px) 10%);opacity:.9;pointer-events:none}
+.xpmeta{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--muted)}
+.xpmeta b{color:var(--text);font-weight:700}
+.lvlbtn{position:relative;z-index:1;border:1px solid rgba(244,183,64,.4);background:var(--gold-soft);color:var(--gold);border-radius:8px;padding:6px 10px;min-height:32px;font:600 12px/1 var(--f-mono)}
+.lvlbtn:hover{border-color:var(--gold)}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.stat{padding:14px;border-radius:var(--r);background:var(--panel);border:1px solid var(--line);display:grid;gap:4px}
+.stat .v{display:flex;align-items:center;gap:6px;font:600 24px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.stat .v small{font:500 12px var(--f-body);color:var(--muted)}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat svg{width:18px;height:18px}
+
+/* columns */
+.cols{display:grid;gap:16px;align-items:start}
+.col{display:grid;gap:16px}
+@media (min-width:900px){.cols{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)}}
+
+.card{padding:18px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
+.card h2{margin:0;font:600 17px/1.2 var(--f-display);letter-spacing:.01em}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.sub{font-size:13px;color:var(--muted);margin-top:4px}
+
+/* run of the day */
+.daynav{display:flex;align-items:center;gap:6px;margin-top:8px}
+.navbtn{flex:none;width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);display:grid;place-items:center;font-size:16px;line-height:1}
+.navbtn:disabled{opacity:.3}
+.daylabel{font-size:14px;font-weight:500;padding:0 4px;min-width:0}
+.linkbtn{background:none;border:0;padding:4px 6px;color:var(--gold);font-size:13px;font-weight:600;white-space:nowrap}
+.ring{position:relative;width:76px;height:76px;flex:none}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .rv{position:absolute;inset:0;display:grid;place-items:center;font:600 16px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.ring .rv small{display:block;font:500 10px/1 var(--f-mono);color:var(--muted);text-align:center;margin-top:3px;letter-spacing:.08em}
+.ring circle{transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1)}
+
+.tasks{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.task{width:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;text-align:left;padding:12px 14px;min-height:58px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);transition:border-color .2s,background-color .2s,transform .12s}
+.task:hover:not(:disabled){border-color:#3c4570}
+.task:active:not(:disabled){transform:scale(.99)}
+.task:disabled{opacity:.6}
+.box{width:24px;height:24px;border-radius:7px;border:2px solid #4a5280;display:grid;place-items:center;transition:all .2s}
+.box svg{width:14px;height:14px;opacity:0;transform:scale(.4);transition:all .2s}
+.task.is-done{background:linear-gradient(90deg,var(--pass-soft),rgba(53,212,154,.03));border-color:rgba(53,212,154,.35)}
+.task.is-done .box{background:var(--pass);border-color:var(--pass)}
+.task.is-done .box svg{opacity:1;transform:none}
+.task.is-done .ttitle{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(142,149,182,.5)}
+.tbody{display:grid;gap:2px;min-width:0}
+.ttitle{font-weight:500;overflow-wrap:anywhere}
+.tmeta{font-size:12px;color:var(--muted)}
+.tside{display:grid;justify-items:end;gap:4px}
+.xp{font-size:12px;font-weight:700;color:var(--gold)}
+.status{font-size:10px;font-weight:700;letter-spacing:.1em;padding:3px 6px;border-radius:5px;border:1px solid var(--line);color:var(--muted)}
+.s-passed{color:var(--pass);border-color:rgba(53,212,154,.4);background:var(--pass-soft)}
+.s-skipped{color:var(--skip);border-color:rgba(239,118,128,.35);background:var(--skip-soft)}
+.s-done{color:var(--gold);border-color:rgba(244,183,64,.4);background:var(--gold-soft)}
+.empty{padding:16px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:14px}
+.banner{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--gold-soft);border:1px solid rgba(244,183,64,.35);color:var(--gold);font-weight:600;font-size:14px}
+.banner svg{width:18px;height:18px;flex:none}
+.rule{margin:12px 0 0;font-size:12px;color:var(--muted);max-width:62ch}
+
+/* weekly */
+.quest{display:grid;grid-template-columns:1fr auto;gap:10px 12px;align-items:center;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2)}
+.quest.is-full{border-color:rgba(244,183,64,.4)}
+.qtitle{font-weight:500;overflow-wrap:anywhere}
+.qmeta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:var(--muted)}
+.pips{display:flex;gap:4px}
+.pip{width:22px;height:8px;border-radius:3px;background:#323a5e}
+.pip.on{background:var(--gold)}
+.qbtn{min-height:40px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:13px;font-weight:600;white-space:nowrap}
+.qbtn.on{border-color:rgba(53,212,154,.5);color:var(--pass);background:var(--pass-soft)}
+.qbtn:disabled{opacity:.5}
+.qlist{display:grid;gap:8px}
+.wkbonus{margin-top:12px;font-size:12px;color:var(--muted)}
+.wkbonus.ok{color:var(--gold);font-weight:600}
+
+/* heatmap */
+.heat{display:grid;grid-template-columns:22px repeat(12,minmax(0,1fr));gap:4px;align-items:center}
+.heat .ml{font:500 10px/1 var(--f-mono);color:var(--muted);white-space:nowrap;overflow:visible;height:12px}
+.heat .dl{font:500 10px/1 var(--f-mono);color:var(--muted)}
+.cell{aspect-ratio:1;border-radius:4px;background:#20263f;border:0;padding:0;display:block;width:100%}
+.cell.c-none{background:#1f2540}
+.cell.c-future{background:transparent;border:1px dashed #262c48}
+.cell.c-0{background:rgba(239,118,128,.28)}
+.cell.c-1{background:rgba(53,212,154,.28)}
+.cell.c-2{background:rgba(53,212,154,.62)}
+.cell.c-perfect{background:var(--gold)}
+.cell.is-today{box-shadow:0 0 0 2px var(--text) inset}
+.cell.is-view{outline:2px solid var(--gold);outline-offset:1px}
+button.cell{cursor:pointer}
+.legend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--muted)}
+.legend .cell{width:12px;height:12px;display:inline-block}
+.legend span.lg{display:inline-flex;align-items:center;gap:5px;margin-right:8px}
+
+/* achievements */
+.achs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.ach{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);opacity:.55}
+.ach.ok{opacity:1;border-color:rgba(244,183,64,.4)}
+.medal{width:40px;height:44px;display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--muted);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:#323a5e}
+.ach.ok .medal{background:var(--gold);color:#1a1405}
+.ach b{display:block;font-size:13px;font-weight:600;line-height:1.2}
+.ach small{display:block;font-size:11px;color:var(--muted);line-height:1.3;margin-top:2px}
+.ach .prog{font-family:var(--f-mono);font-size:10px;margin-top:4px}
+.ach.ok .prog{color:var(--gold)}
+
+/* xp float + toasts */
+.xpfloat{position:fixed;z-index:50;pointer-events:none;font:800 16px/1 var(--f-display);color:var(--gold);text-shadow:0 2px 12px rgba(0,0,0,.6);animation:floatup 1.1s ease-out forwards}
+.xpfloat.neg{color:var(--muted)}
+@keyframes floatup{0%{opacity:0;transform:translateY(6px) scale(.8)}15%{opacity:1;transform:translateY(0) scale(1.08)}100%{opacity:0;transform:translateY(-46px) scale(1)}}
+.toasts{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:80;display:grid;gap:8px;width:min(420px,calc(100% - 32px))}
+.toast{padding:12px 14px;border-radius:12px;background:#262d4b;border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.4);font-size:14px;font-weight:500;animation:tin .25s ease-out}
+.toast.gold{border-color:rgba(244,183,64,.55);color:var(--gold)}
+.toast.pass{border-color:rgba(53,212,154,.5);color:var(--pass)}
+.toast.warn{border-color:rgba(239,118,128,.5)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+
+/* level up */
+.levelup{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:16px;background:rgba(10,12,22,.72);backdrop-filter:blur(4px)}
+.lu-card{position:relative;width:min(360px,100%);padding:28px 22px 22px;border-radius:22px;background:var(--panel);border:1px solid rgba(244,183,64,.5);text-align:center;overflow:hidden}
+.lu-card::before{content:"";position:absolute;left:50%;top:86px;width:20px;height:20px;margin:-10px;border-radius:50%;border:3px solid var(--gold);animation:burst 1s ease-out forwards;opacity:0}
+@keyframes burst{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(16)}}
+.lu-eyebrow{font-size:11px;letter-spacing:.24em;color:var(--gold)}
+.lu-num{font:800 84px/1 var(--f-display);color:var(--gold);margin:10px 0 4px;animation:pop .8s cubic-bezier(.2,1.6,.4,1)}
+.lu-rank{font:600 20px/1.2 var(--f-display)}
+.lu-card p{color:var(--muted);font-size:14px;margin:10px 0 18px}
+
+/* sheets */
+.sheet{position:fixed;inset:0;z-index:65;background:rgba(10,12,22,.66);display:flex;align-items:flex-end;justify-content:center}
+@media (min-width:700px){.sheet{align-items:center;padding:24px}}
+.sheet-panel{width:min(720px,100%);max-height:min(88vh,880px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:20px 20px 0 0;overflow:hidden}
+@media (min-width:700px){.sheet-panel{border-radius:20px}}
+.sheet-head,.sheet-foot{display:flex;align-items:center;gap:8px;padding:14px 16px;flex-wrap:wrap}
+.sheet-head{border-bottom:1px solid var(--line)}
+.sheet-head h2{margin:0;font:600 18px var(--f-display)}
+.sheet-foot{border-top:1px solid var(--line);padding-bottom:max(14px,env(safe-area-inset-bottom))}
+.sheet-body{overflow:auto;padding:14px 16px;display:grid;gap:18px;align-content:start}
+.egroup{display:grid;gap:8px}
+.egroup h3{margin:0;font:700 11px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.erow{display:grid;gap:8px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2)}
+.einput{width:100%;min-height:42px;padding:8px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg)}
+.ectrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:8px 10px;font-size:13px;min-height:36px;color:var(--muted)}
+.seg button.on{background:var(--gold-soft);color:var(--gold);font-weight:600}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{min-width:36px;min-height:36px;border-radius:8px;border:1px solid var(--line);background:transparent;font-size:12px;color:var(--muted)}
+.chip.on{background:var(--pass-soft);border-color:rgba(53,212,154,.45);color:var(--pass);font-weight:600}
+.esel{min-height:36px;padding:6px 8px;border-radius:9px;border:1px solid var(--line);background:var(--bg);font-size:13px}
+.del{margin-left:auto;min-height:36px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:transparent;font-size:13px;color:var(--muted)}
+.del.confirm{border-color:var(--skip);color:var(--skip)}
+
+/* levels sheet */
+.lvsum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.lvsum .stat .v{font-size:20px}
+.lvtable{width:100%;border-collapse:collapse;font-size:14px}
+.lvtable th{position:sticky;top:-14px;background:var(--panel);text-align:left;font:700 10px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:10px 8px;border-bottom:1px solid var(--line)}
+.lvtable td{padding:9px 8px;border-bottom:1px solid rgba(45,52,84,.6);vertical-align:middle}
+.lvtable td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.lvtable th.num{text-align:right}
+.lvtable .lv{font:600 15px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.lvtable tr.done td{color:var(--muted)}
+.lvtable tr.done .lv{color:var(--pass)}
+.lvtable tr.cur td{background:var(--gold-soft)}
+.lvtable tr.cur .lv{color:var(--gold)}
+.lvtable .grade{display:inline-block;font:700 10px/1 var(--f-mono);letter-spacing:.06em;padding:4px 6px;border-radius:5px;border:1px solid rgba(244,183,64,.45);color:var(--gold);white-space:nowrap}
+.lvtable tr.done .grade{border-color:rgba(53,212,154,.4);color:var(--pass)}
+.lvtable .st{font-size:12px;color:var(--muted)}
+.lvtable tr.cur .st{color:var(--gold);font-weight:600}
+.minibar{display:block;height:5px;margin-top:5px;border-radius:3px;background:#323a5e;overflow:hidden;max-width:140px}
+.minibar i{display:block;height:100%;background:var(--gold)}
+
+/* sync sheet */
+.steps{margin:0;padding-left:20px;display:grid;gap:6px;font-size:14px;color:var(--muted)}
+.steps b{color:var(--text);font-weight:600}
+.form{display:grid;gap:10px}
+.field{display:grid;gap:4px}
+.field label{font-size:12px;color:var(--muted)}
+.field small{font-size:12px;color:var(--muted)}
+.formstatus{font-size:13px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2)}
+.formstatus[data-k="ok"]{border-color:rgba(53,212,154,.45);color:var(--pass)}
+.formstatus[data-k="err"]{border-color:rgba(239,118,128,.45);color:var(--skip)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.box-sec{display:grid;gap:10px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2)}
+.box-sec h3{margin:0;font:600 14px var(--f-display)}
+.box-sec p{margin:0;font-size:13px;color:var(--muted)}
+
+@media (max-width:560px){
+  .app{padding:12px 12px 72px;gap:12px}
+  .brand{display:none}
+  .hud{grid-template-columns:auto 1fr;gap:14px;padding:16px}
+  .badge{width:84px;height:94px}
+  .badge-lvl{font-size:34px}
+  .badge-cap{bottom:16px;font-size:9px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .card{padding:14px}
+  .ring{width:62px;height:62px}
+  .ring .rv{font-size:14px}
+  .quest{grid-template-columns:1fr}
+  .qbtn{width:100%}
+  .achs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lvsum{grid-template-columns:1fr 1fr}
+  .lvsum .stat:last-child{grid-column:1/-1}
+  .hide-sm{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<main class="app" id="app">
+  <div class="topbar">
+    <span class="brand">Квест-лог <b>QA</b></span>
+    <span class="spacer"></span>
+    <button class="pill" id="sync" data-s="warn" data-action="openSync"><i></i><span id="syncText">Только это устройство</span></button>
+    <button class="btn" id="editBtn" data-action="openEditor">Задачи</button>
+  </div>
+
+  <div class="note" id="note" hidden><span id="noteText"></span><button class="btn" id="noteBtn" data-action="openSync">Подключить GitHub</button></div>
+
+  <header class="hud">
+    <button class="badge" id="badge" data-action="openLevels" aria-label="Открыть таблицу уровней">
+      <svg viewBox="0 0 120 132" aria-hidden="true">
+        <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD98A"/><stop offset="1" stop-color="#DE9227"/></linearGradient></defs>
+        <polygon points="60,4 114,35 114,97 60,128 6,97 6,35" fill="#1B2034" stroke="url(#gg)" stroke-width="5" stroke-linejoin="round"/>
+        <polygon points="60,17 103,42 103,90 60,115 17,90 17,42" fill="none" stroke="#2D3454" stroke-width="1.5"/>
+      </svg>
+      <span class="badge-lvl" id="lvlNum">1</span>
+      <span class="badge-cap">LVL</span>
+    </button>
+    <div>
+      <div class="eyebrow mono" id="lvlLine">Уровень 1 · грейд</div>
+      <h1 class="rank" id="rankName">Trainee QA</h1>
+      <div class="xpbar" id="xpbar" role="progressbar" aria-label="Опыт до следующего уровня" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="xpfill" id="xpfill"></div></div>
+      <div class="xpmeta mono"><span id="xpText"><b>0</b> / 100 XP</span><span id="nextText">до 2 уровня</span><button class="lvlbtn" data-action="openLevels">Все уровни ›</button></div>
+    </div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="cols">
+    <div class="col">
+      <section class="card" id="run" aria-labelledby="runTitle"></section>
+    </div>
+    <div class="col">
+      <section class="card" id="weekly" aria-labelledby="wkTitle"></section>
+      <section class="card" id="map" aria-labelledby="mapTitle"></section>
+      <section class="card" id="ach" aria-labelledby="achTitle"></section>
+    </div>
+  </div>
+</main>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<div class="levelup" id="levelup" hidden>
+  <div class="lu-card" role="dialog" aria-modal="true" aria-labelledby="luRank">
+    <div class="lu-eyebrow mono">LEVEL UP</div>
+    <div class="lu-num" id="luNum">2</div>
+    <div class="lu-rank" id="luRank">Trainee QA</div>
+    <p id="luText">Новый уровень открыт.</p>
+    <button class="btn primary" data-action="closeLevelup" id="luBtn">Продолжить</button>
+  </div>
+</div>
+
+<!-- Редактор задач -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-head">
+      <h2 id="sheetTitle">Мои задачи</h2>
+      <span class="spacer"></span>
+      <button class="btn ghost" data-action="closeEditor">Отмена</button>
+    </div>
+    <div class="sheet-body" id="editorList"></div>
+    <div class="sheet-foot">
+      <button class="btn" data-action="addTask" data-kind="daily">+ Ежедневная</button>
+      <button class="btn" data-action="addTask" data-kind="weekly">+ Недельная</button>
+      <span class="spacer"></span>
+      <button class="btn primary" data-action="saveEditor">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Таблица уровней -->
+<div class="sheet" id="levels" hidden>
+  <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="levelsTitle">
+    <div class="sheet-head">
+      <h2 id="levelsTitle">Уровни и опыт</h2>
+      <span class="spacer"></span>
+      <button class="btn ghost" data-action="closeLevels">Закрыть</button>
+    </div>
+    <div class="sheet-body" id="levelsBody"></div>
+  </div>
+</div>
+
+<!-- Синхронизация -->
+<div class="sheet" id="syncSheet" hidden>
+  <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="syncTitle">
+    <div class="sheet-head">
+      <h2 id="syncTitle">Синхронизация</h2>
+      <span class="spacer"></span>
+      <button class="btn ghost" data-action="closeSync">Закрыть</button>
+    </div>
+    <div class="sheet-body">
+      <div class="box-sec">
+        <h3>Хранить прогресс в GitHub</h3>
+        <p>Прогресс лежит в файле <span class="mono">data.json</span> в твоём приватном репозитории. Подключи один и тот же репозиторий на ноутбуке и на телефоне, и отметки будут общими.</p>
+        <ol class="steps">
+          <li>Создай <b>приватный</b> репозиторий, например <span class="mono">questlog-data</span>: <a href="https://github.com/new" target="_blank" rel="noopener">github.com/new</a>.</li>
+          <li>Создай токен: <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Fine-grained token</a> → Repository access: <b>Only select repositories</b> → этот репозиторий → Permissions: <b>Contents — Read and write</b>.</li>
+          <li>Впиши данные ниже и нажми «Подключить». На телефоне сделай то же самое один раз.</li>
+        </ol>
+        <form class="form" id="ghForm" autocomplete="off">
+          <div class="field"><label for="ghOwner">Логин на GitHub</label><input class="einput" id="ghOwner" placeholder="например, azamat-gumerov" autocapitalize="off" spellcheck="false"></div>
+          <div class="field"><label for="ghRepo">Репозиторий с данными</label><input class="einput" id="ghRepo" value="questlog-data" autocapitalize="off" spellcheck="false"></div>
+          <div class="field"><label for="ghToken">Токен</label><input class="einput" id="ghToken" type="password" placeholder="github_pat_…" autocapitalize="off" spellcheck="false"><small>Токен хранится только в этом браузере и отправляется только в GitHub.</small></div>
+          <div class="row">
+            <button class="btn primary" type="submit" id="ghConnect">Подключить</button>
+            <button class="btn ghost" type="button" data-action="syncNow" id="ghSyncNow">Синхронизировать сейчас</button>
+            <button class="btn ghost danger" type="button" data-action="disconnect" id="ghDisconnect">Отключить на этом устройстве</button>
+          </div>
+          <div class="formstatus" id="ghStatus" hidden></div>
+        </form>
+      </div>
+      <div class="box-sec">
+        <h3>Резервная копия</h3>
+        <p>Файл со всеми задачами и отметками. Его можно загрузить обратно, например на новом устройстве без GitHub.</p>
+        <div class="row">
+          <button class="btn" type="button" data-action="exportJson">Скачать копию (.json)</button>
+          <label class="btn" for="importFile">Загрузить из файла</label>
+          <input type="file" id="importFile" accept="application/json,.json" class="sr">
+        </div>
+        <div class="formstatus" id="importStatus" hidden></div>
+        <div class="row" id="importConfirm" hidden>
+          <button class="btn primary" type="button" data-action="importApply">Заменить мой прогресс</button>
+          <button class="btn ghost" type="button" data-action="importCancel">Отмена</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/*CORE-START*/
+const PERFECT_BONUS = 20;   // бонус за день, где пройдены все ежедневные задачи
+const WEEK_BONUS = 30;      // бонус за неделю, где закрыты все недельные квесты
+const STREAK_RATIO = 0.5;   // день идёт в серию, если пройдена хотя бы половина ежедневных задач
+const RANKS = [
+  {lvl:1, name:'Trainee QA'},
+  {lvl:3, name:'Junior QA'},
+  {lvl:6, name:'Middle QA'},
+  {lvl:10, name:'Senior QA'},
+  {lvl:15, name:'QA Lead'},
+  {lvl:20, name:'Head of QA'},
+  {lvl:30, name:'QA Legend'}
+];
+const pad = n => String(n).padStart(2, '0');
+const keyOf = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const dateOf = k => { const p = k.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2], 12); };
+const addDays = (k, n) => { const d = dateOf(k); d.setDate(d.getDate() + n); return keyOf(d); };
+const wd = k => { const g = dateOf(k).getDay(); return g === 0 ? 7 : g; };      // 1 = Пн … 7 = Вс
+const weekStart = k => addDays(k, 1 - wd(k));
+const isActive = (t, k) => (!t.createdAt || t.createdAt <= k) && (!t.archivedAt || t.archivedAt > k);
+const dailyFor = (tasks, k) => tasks.filter(t => t.kind !== 'weekly' && isActive(t, k) &&
+  (!t.days || !t.days.length || t.days.indexOf(wd(k)) !== -1));
+
+// Опыт, нужный чтобы перейти с уровня L на L+1, и суммарный порог уровня L
+const stepXp = L => 100 + 50 * (L - 1);
+const cumXp = L => 100 * (L - 1) + 25 * (L - 1) * (L - 2);
+function levelOf(xp) {
+  let level = 1, rest = xp;
+  while (rest >= stepXp(level)) { rest -= stepXp(level); level++; }
+  return { level, into: rest, need: stepXp(level) };
+}
+function rankFor(level) { let r = RANKS[0]; for (const x of RANKS) if (level >= x.lvl) r = x; return r; }
+function nextRankFor(level) { return RANKS.find(x => x.lvl > level) || null; }
+
+function computeStats(cfg, days, today) {
+  const tasks = cfg.tasks || [];
+  const byId = {};
+  for (const t of tasks) byId[t.id] = t;
+  let first = today;
+  for (const t of tasks) if (t.createdAt && t.createdAt < first) first = t.createdAt;
+  for (const k of Object.keys(days)) if (k < first) first = k;
+  const floor = addDays(today, -1500);
+  if (first < floor) first = floor;
+
+  let xp = 0, doneTotal = 0, perfectDays = 0, perfectWeeks = 0, run = 0, best = 0;
+  const weekCounts = {}, dayInfo = {};
+  for (let k = first; k <= today; k = addDays(k, 1)) {
+    const done = (days[k] && days[k].done) || {};
+    const wk = weekStart(k);
+    const wc = weekCounts[wk] || (weekCounts[wk] = {});
+    let any = false, dxp = 0;
+    for (const id of Object.keys(done)) {
+      const t = byId[id];
+      if (!t) continue;
+      any = true; doneTotal++;
+      if (t.kind === 'weekly') {
+        const c = wc[id] || 0;
+        if (c < (t.target || 1)) dxp += t.xp || 0;
+        wc[id] = c + 1;
+      } else {
+        dxp += t.xp || 0;
+      }
+    }
+    const sched = dailyFor(tasks, k);
+    let doneDaily = 0;
+    for (const t of sched) if (done[t.id]) doneDaily++;
+    const perfect = sched.length > 0 && doneDaily === sched.length;
+    if (perfect) { dxp += PERFECT_BONUS; perfectDays++; }
+    xp += dxp;
+    const ratio = sched.length ? doneDaily / sched.length : null;
+    dayInfo[k] = { sched: sched.length, doneDaily, ratio, perfect, any, xp: dxp };
+    if (ratio !== null) {
+      if (ratio >= STREAK_RATIO) { run++; if (run > best) best = run; }
+      else if (k !== today) run = 0;            // сегодняшний день ещё не закончен — серию не рвём
+    }
+  }
+  for (const wk of Object.keys(weekCounts)) {
+    const end = addDays(wk, 6);
+    const ref = end < today ? end : today;
+    const weekly = tasks.filter(t => t.kind === 'weekly' && isActive(t, ref));
+    if (weekly.length && weekly.every(t => (weekCounts[wk][t.id] || 0) >= (t.target || 1))) {
+      xp += WEEK_BONUS; perfectWeeks++;
+    }
+  }
+  const lv = levelOf(xp);
+  return { xp, level: lv.level, into: lv.into, need: lv.need, doneTotal, perfectDays, perfectWeeks,
+    streak: run, bestStreak: best, dayInfo, weekCounts, first };
+}
+
+// Слияние двух копий данных (с этого устройства и из GitHub): по каждой отметке побеждает более поздняя
+function mergeDay(a, b) {
+  a = a || { done:{}, off:{} }; b = b || { done:{}, off:{} };
+  const out = { done:{}, off:{} };
+  const ids = new Set([].concat(Object.keys(a.done || {}), Object.keys(a.off || {}), Object.keys(b.done || {}), Object.keys(b.off || {})));
+  ids.forEach(id => {
+    const ta = (a.done && a.done[id]) || (a.off && a.off[id]) || 0;
+    const tb = (b.done && b.done[id]) || (b.off && b.off[id]) || 0;
+    const w = tb > ta ? b : a;
+    if (w.done && w.done[id]) out.done[id] = w.done[id]; else if (w.off && w.off[id]) out.off[id] = w.off[id];
+  });
+  return out;
+}
+function mergeData(local, remote) {
+  const days = Object.assign({}, local.days);
+  for (const k of Object.keys(remote.days || {})) days[k] = mergeDay(local.days[k], remote.days[k]);
+  const lu = (local.config && local.config.u) || 0, ru = (remote.config && remote.config.u) || 0;
+  const config = remote.config && ru >= lu ? remote.config : local.config;
+  return { config, days };
+}
+
+const ACH = [
+  { id:'first',    g:'01',  name:'Первый прогон',        desc:'Отметить первую задачу',         f:s => [s.doneTotal, 1] },
+  { id:'perfect1', g:'ALL', name:'Всё зелёное',          desc:'Пройти все задачи дня',          f:s => [s.perfectDays, 1] },
+  { id:'streak3',  g:'3Д',  name:'Смоук-тест',           desc:'Серия 3 дня',                     f:s => [s.bestStreak, 3] },
+  { id:'streak7',  g:'7Д',  name:'Неделя без багов',     desc:'Серия 7 дней',                    f:s => [s.bestStreak, 7] },
+  { id:'week1',    g:'WK',  name:'Спринт закрыт',        desc:'Закрыть все квесты недели',      f:s => [s.perfectWeeks, 1] },
+  { id:'done100',  g:'100', name:'Сотня кейсов',         desc:'100 пройденных задач',           f:s => [s.doneTotal, 100] },
+  { id:'perf10',   g:'10×', name:'Стабильная сборка',    desc:'10 идеальных дней',              f:s => [s.perfectDays, 10] },
+  { id:'middle',   g:'MID', name:'Middle QA',            desc:'Дойти до 6 уровня',              f:s => [s.level, 6] },
+  { id:'streak30', g:'30Д', name:'Полный регресс',       desc:'Серия 30 дней',                   f:s => [s.bestStreak, 30] },
+  { id:'done500',  g:'500', name:'Тест-план на 500',     desc:'500 пройденных задач',           f:s => [s.doneTotal, 500] },
+  { id:'senior',   g:'SNR', name:'Senior QA',            desc:'Дойти до 10 уровня',             f:s => [s.level, 10] },
+  { id:'streak100',g:'100Д',name:'Релиз без хотфиксов',  desc:'Серия 100 дней',                  f:s => [s.bestStreak, 100] }
+];
+const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a, { v: r[0], goal: r[1], ok: r[0] >= r[1] }); });
+/*CORE-END*/
+
+(function () {
+  const BACK_DAYS = 7;
+  const LS_DATA = 'questlog-data-v1';
+  const LS_GH = 'questlog-github-v1';
+  const DATA_PATH = 'data.json';
+  const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const uid = () => 't' + Math.random().toString(36).slice(2, 9);
+  const clampInt = (v, lo, hi, dflt) => { const n = parseInt(v, 10); return isNaN(n) ? dflt : Math.min(hi, Math.max(lo, n)); };
+  const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : (a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many); };
+  const nf = new Intl.NumberFormat('ru-RU');
+  const fmtLong = new Intl.DateTimeFormat('ru-RU', { weekday:'long', day:'numeric', month:'long' });
+  const fmtDM = new Intl.DateTimeFormat('ru-RU', { day:'numeric', month:'long' });
+  const fmtMon = new Intl.DateTimeFormat('ru-RU', { month:'short' });
+  const fmtTime = new Intl.DateTimeFormat('ru-RU', { hour:'2-digit', minute:'2-digit' });
+  const CHECK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="#10241b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const FLAME = c => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3.5 5 5.6 5 10.4A5 5 0 0 1 7 12.6c0-2 1-3.4 2.2-4.4.1 1.6.9 2.7 2 3.1C11 8.4 11.6 5 12 2z" fill="' + c + '"/></svg>';
+  const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let today = keyOf(new Date());
+  let viewDate = today;
+  let config = defaultConfig(today);
+  let days = {};
+  let stats = null;
+  let draft = null;
+  let pendingImport = null;
+
+  // синхронизация
+  let gh = null;                 // {owner, repo, token}
+  let sha = null;                // версия файла в GitHub
+  let changeSeq = 0, syncedSeq = 0;
+  let syncing = false, syncAgain = false, syncTimer = null, lastPull = 0, forcePush = false;
+  let sync = { state:'local', at:0, err:null };
+
+  function defaultConfig(t) {
+    const d = (id, title, xp) => ({ id, title, kind:'daily', xp, target:1, days:[], createdAt:t });
+    const w = (id, title, target, xp) => ({ id, title, kind:'weekly', xp, target, days:[], createdAt:t });
+    return { u:0, tasks:[
+      d('wake', 'Подъём в 6:00', 10),
+      d('school21', 'Школа 21: позаниматься Java-буткемпом', 20),
+      d('tongue', 'Скороговорки — 15 минут', 10),
+      d('english', 'Чтение на английском — 15 минут', 10),
+      d('qabook', 'Книга по тестированию — 30 минут', 15),
+      d('sleep', 'Отбой в 22:00', 10),
+      w('workout', 'Тренировка', 2, 20),
+      w('mealprep', 'Приготовить рацион на неделю', 1, 25),
+      w('weekplan', 'Спланировать неделю в TickTick', 1, 15)
+    ]};
+  }
+  function normalize(cfg) {
+    const list = cfg && Array.isArray(cfg.tasks) ? cfg.tasks : [];
+    return { u: Number(cfg && cfg.u) || 0, tasks: list.filter(t => t && t.id).map(t => {
+      const o = {
+        id: String(t.id).slice(0, 40),
+        title: String(t.title || 'Без названия').slice(0, 120),
+        kind: t.kind === 'weekly' ? 'weekly' : 'daily',
+        xp: clampInt(t.xp, 1, 100, 10),
+        target: clampInt(t.target, 1, 7, 1),
+        days: Array.isArray(t.days) ? t.days.map(Number).filter(n => n >= 1 && n <= 7) : [],
+        createdAt: DATE_RE.test(t.createdAt) ? t.createdAt : today
+      };
+      if (DATE_RE.test(t.archivedAt)) o.archivedAt = t.archivedAt;
+      return o;
+    })};
+  }
+  function cleanStamps(o) {
+    const out = {};
+    if (o && typeof o === 'object') for (const id of Object.keys(o)) { const v = Number(o[id]); if (v > 0) out[String(id).slice(0, 40)] = v; }
+    return out;
+  }
+  function sanitizeDays(obj) {
+    const out = {};
+    if (obj && typeof obj === 'object') for (const k of Object.keys(obj)) {
+      if (!DATE_RE.test(k)) continue;
+      out[k] = { done: cleanStamps(obj[k] && obj[k].done), off: cleanStamps(obj[k] && obj[k].off) };
+    }
+    return out;
+  }
+
+  /* ---------- локальное хранение ---------- */
+  function loadLocal() {
+    try {
+      const s = JSON.parse(localStorage.getItem(LS_DATA) || 'null');
+      if (s) {
+        if (s.config) config = normalize(s.config);
+        days = sanitizeDays(s.days);
+        sha = s.sha || null;
+        if (s.dirty) { changeSeq = 1; syncedSeq = 0; }
+      }
+    } catch (e) { /* localStorage недоступен */ }
+    try { const g = JSON.parse(localStorage.getItem(LS_GH) || 'null'); if (g && g.owner && g.repo && g.token) gh = g; } catch (e) {}
+  }
+  function saveLocal() {
+    try { localStorage.setItem(LS_DATA, JSON.stringify({ config, days, sha, dirty: changeSeq !== syncedSeq })); }
+    catch (e) { toast('Браузер не даёт сохранить данные. Проверь, не включён ли приватный режим.', 'warn'); }
+  }
+  function changed() { changeSeq++; saveLocal(); scheduleSync(); }
+
+  /* ---------- GitHub ---------- */
+  const b64enc = str => { const bytes = new TextEncoder().encode(str); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(bin); };
+  const b64dec = b64 => { const bin = atob(String(b64).replace(/\s/g, '')); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new TextDecoder().decode(bytes); };
+  const ghHeaders = g => ({ 'Authorization': 'Bearer ' + g.token, 'Accept': 'application/vnd.github+json' });
+  const fileUrl = g => 'https://api.github.com/repos/' + encodeURIComponent(g.owner) + '/' + encodeURIComponent(g.repo) + '/contents/' + DATA_PATH;
+  function ghFail(status) { const e = new Error('GitHub ' + status); e.kind = status === 401 ? 'auth' : status === 403 ? 'forbidden' : status === 404 ? 'notfound' : 'http'; e.status = status; return e; }
+  async function ghFetch(url, opts) {
+    try { return await fetch(url, opts); }
+    catch (e) { const er = new Error('offline'); er.kind = 'offline'; throw er; }
+  }
+  async function ghGet(g) {
+    const r = await ghFetch(fileUrl(g), { headers: ghHeaders(g), cache: 'no-store' });
+    if (r.status === 404) return null;
+    if (!r.ok) throw ghFail(r.status);
+    const j = await r.json();
+    let data = {};
+    try { data = JSON.parse(b64dec(j.content)); } catch (e) { data = {}; }
+    return { sha: j.sha, data };
+  }
+  async function ghPut(g, payload, prevSha) {
+    const body = { message: 'Прогон ' + today, content: b64enc(JSON.stringify(payload, null, 1)) };
+    if (prevSha) body.sha = prevSha;
+    const r = await ghFetch(fileUrl(g), { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/json' }, ghHeaders(g)), body: JSON.stringify(body) });
+    if (r.status === 409 || r.status === 422) return { conflict: true };
+    if (!r.ok) throw ghFail(r.status);
+    const j = await r.json();
+    return { sha: j.content && j.content.sha };
+  }
+  const payload = () => ({ app:'questlog', v:2, saved: new Date().toISOString(), config, days });
+  function errText(e) {
+    switch (e && e.kind) {
+      case 'auth': return 'GitHub не принял токен: он неверный или у него истёк срок. Создай новый и вставь его в «Синхронизации».';
+      case 'forbidden': return 'У токена нет права записи. Проверь, что у него Contents — Read and write для репозитория с данными.';
+      case 'notfound': return 'Репозиторий не найден. Проверь логин и название, и что токен выдан именно на этот репозиторий.';
+      case 'offline': return 'Нет связи с GitHub. Отметки сохранены на устройстве и отправятся, когда появится интернет.';
+      default: return 'GitHub ответил ошибкой' + (e && e.status ? ' ' + e.status : '') + '. Попробуй синхронизировать чуть позже.';
+    }
+  }
+
+  function scheduleSync(delay) {
+    if (!gh) { renderSync(); return; }
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(syncNow, delay == null ? 1500 : delay);
+    renderSync();
+  }
+  async function syncNow() {
+    if (!gh) return false;
+    if (syncing) { syncAgain = true; return false; }
+    clearTimeout(syncTimer);
+    syncing = true; sync.state = 'saving'; renderSync();
+    const g = gh;
+    let ok = false;
+    try {
+      for (let attempt = 0; attempt < 4 && !ok; attempt++) {
+        const remote = await ghGet(g);
+        if (g !== gh) return false;
+        if (remote) {
+          sha = remote.sha;
+          if (!forcePush) {
+            const m = mergeData({ config, days }, { config: remote.data.config ? normalize(remote.data.config) : null, days: sanitizeDays(remote.data.days) });
+            config = m.config || config; days = m.days;
+          }
+        } else sha = null;
+        lastPull = Date.now();
+        saveLocal(); render();
+        if (remote && changeSeq === syncedSeq) { ok = true; break; }
+        const seq = changeSeq;
+        const res = await ghPut(g, payload(), sha);
+        if (res.conflict) continue;
+        sha = res.sha; syncedSeq = seq; forcePush = false; saveLocal();
+        ok = true;
+      }
+      if (ok) { sync = { state: changeSeq === syncedSeq ? 'ok' : 'saving', at: Date.now(), err: null }; if (sync.state === 'ok') hideNote(); }
+      else { const e = new Error('conflict'); e.kind = 'http'; throw e; }
+    } catch (e) {
+      sync = { state: 'error', at: sync.at, err: e };
+      if (e.kind !== 'offline') showNote(errText(e), 'warn', 'Открыть настройки');
+    } finally {
+      syncing = false;
+      renderSync();
+      if (syncAgain) { syncAgain = false; scheduleSync(300); }
+    }
+    return ok;
+  }
+
+  async function connect(owner, repo, token) {
+    const g = { owner, repo, token };
+    const r = await ghFetch('https://api.github.com/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo), { headers: ghHeaders(g), cache: 'no-store' });
+    if (!r.ok) throw ghFail(r.status);
+    const info = await r.json();
+    if (info.permissions && info.permissions.push === false) throw ghFail(403);
+    gh = g; sha = null;
+    try { localStorage.setItem(LS_GH, JSON.stringify(gh)); } catch (e) {}
+    const ok = await syncNow();
+    if (!ok) throw (sync.err || ghFail(0));
+    return info;
+  }
+  function disconnect() {
+    gh = null; sha = null;
+    try { localStorage.removeItem(LS_GH); } catch (e) {}
+    sync = { state:'local', at:0, err:null };
+    saveLocal(); render();
+    showNote('Сейчас прогресс хранится только на этом устройстве. Подключи свой GitHub-репозиторий, чтобы видеть его и на телефоне, и на ноутбуке.', 'info');
+  }
+
+  /* ---------- отрисовка ---------- */
+  function render() {
+    stats = computeStats(config, days, today);
+    renderHud(); renderStats(); renderRun(); renderWeekly(); renderMap(); renderAch(); renderSync();
+    if (!$('levels').hidden) renderLevels(false);
+  }
+
+  function renderHud() {
+    const r = rankFor(stats.level), nx = nextRankFor(stats.level);
+    $('lvlNum').textContent = stats.level;
+    $('lvlLine').textContent = 'Уровень ' + stats.level + ' · грейд';
+    $('rankName').textContent = r.name;
+    const pct = Math.round(stats.into / stats.need * 100);
+    $('xpfill').style.width = pct + '%';
+    $('xpbar').setAttribute('aria-valuenow', pct);
+    $('xpText').innerHTML = '<b>' + nf.format(stats.into) + '</b> / ' + nf.format(stats.need) + ' XP до ' + (stats.level + 1) + ' ур.';
+    $('nextText').textContent = nx ? (nx.name + ' — с ' + nx.lvl + ' уровня') : 'Максимальный грейд';
+  }
+
+  function renderStats() {
+    const s = stats;
+    const tile = (v, unit, k, icon) => '<div class="stat"><div class="v">' + (icon || '') + v + (unit ? ' <small>' + unit + '</small>' : '') + '</div><div class="k">' + k + '</div></div>';
+    $('stats').innerHTML =
+      tile(s.streak, plural(s.streak, 'день', 'дня', 'дней'), 'Текущая серия', FLAME(s.streak ? '#F4B740' : '#4a5280')) +
+      tile(s.bestStreak, plural(s.bestStreak, 'день', 'дня', 'дней'), 'Рекорд серии') +
+      tile(nf.format(s.doneTotal), '', 'Задач пройдено') +
+      tile(nf.format(s.xp), 'XP', 'Опыта всего');
+  }
+
+  function dayLabel(k) {
+    const s = fmtLong.format(dateOf(k));
+    if (k === today) return 'Сегодня, ' + s;
+    if (k === addDays(today, -1)) return 'Вчера, ' + s;
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  function scheduleLabel(t) {
+    if (t.kind === 'weekly') return t.target + ' ' + plural(t.target, 'раз', 'раза', 'раз') + ' в неделю';
+    if (!t.days.length || t.days.length === 7) return 'каждый день';
+    return t.days.slice().sort().map(n => WD[n - 1]).join(' · ');
+  }
+  const isDone = (k, id) => !!(days[k] && days[k].done && days[k].done[id]);
+
+  function renderRun() {
+    const sched = dailyFor(config.tasks, viewDate);
+    const n = sched.filter(t => isDone(viewDate, t.id)).length;
+    const isToday = viewDate === today;
+    const R = 30, C = 2 * Math.PI * R, frac = sched.length ? n / sched.length : 0;
+    const perfect = sched.length > 0 && n === sched.length;
+    const minDay = addDays(today, -BACK_DAYS);
+    const items = sched.map(t => {
+      const ok = isDone(viewDate, t.id);
+      const st = ok ? 'PASSED' : (isToday ? 'PENDING' : 'SKIPPED');
+      return '<li><button class="task' + (ok ? ' is-done' : '') + '" data-action="toggle" data-id="' + esc(t.id) + '" aria-pressed="' + ok + '">' +
+        '<span class="box">' + CHECK + '</span>' +
+        '<span class="tbody"><span class="ttitle">' + esc(t.title) + '</span><span class="tmeta">' + scheduleLabel(t) + '</span></span>' +
+        '<span class="tside"><span class="xp mono">+' + t.xp + ' XP</span><span class="status mono s-' + st.toLowerCase() + '">' + st + '</span></span>' +
+        '</button></li>';
+    }).join('');
+    $('run').innerHTML =
+      '<div class="card-head"><div>' +
+        '<h2 id="runTitle">Прогон дня</h2>' +
+        '<div class="daynav">' +
+          '<button class="navbtn" data-action="prevDay" aria-label="Предыдущий день"' + (viewDate <= minDay ? ' disabled' : '') + '>‹</button>' +
+          '<span class="daylabel">' + dayLabel(viewDate) + '</span>' +
+          '<button class="navbtn" data-action="nextDay" aria-label="Следующий день"' + (viewDate >= today ? ' disabled' : '') + '>›</button>' +
+          (isToday ? '' : '<button class="linkbtn" data-action="toToday">к сегодня</button>') +
+        '</div></div>' +
+        '<div class="ring" aria-label="Пройдено ' + n + ' из ' + sched.length + '"><svg viewBox="0 0 76 76">' +
+          '<circle cx="38" cy="38" r="' + R + '" fill="none" stroke="#2D3454" stroke-width="7"/>' +
+          '<circle cx="38" cy="38" r="' + R + '" fill="none" stroke="' + (perfect ? '#F4B740' : '#35D49A') + '" stroke-width="7" stroke-linecap="round" stroke-dasharray="' + C.toFixed(2) + '" stroke-dashoffset="' + (C * (1 - frac)).toFixed(2) + '"/>' +
+        '</svg><div class="rv"><div>' + n + '/' + sched.length + '<small>PASSED</small></div></div></div>' +
+      '</div>' +
+      (sched.length ? '<ul class="tasks">' + items + '</ul>' : '<div class="empty">На этот день ежедневных задач нет. Добавь их через кнопку «Задачи».</div>') +
+      (perfect ? '<div class="banner">' + FLAME('#F4B740') + 'Идеальный день: все задачи пройдены, +' + PERFECT_BONUS + ' XP бонусом</div>' : '') +
+      (isToday ? '' : '<p class="rule">Забыл отметить вовремя? Прошлые ' + BACK_DAYS + ' дней можно поправить, опыт и серия пересчитаются.</p>') +
+      '<p class="rule">День идёт в серию, если пройдена хотя бы половина ежедневных задач. Все задачи дня — бонус +' + PERFECT_BONUS + ' XP.</p>';
+  }
+
+  function weekTicks(id, anyDayOfWeek) {
+    const wk = weekStart(anyDayOfWeek), out = [];
+    for (let i = 0; i < 7; i++) if (isDone(addDays(wk, i), id)) out.push(i);
+    return out;
+  }
+
+  function renderWeekly() {
+    const wk = weekStart(viewDate), end = addDays(wk, 6);
+    const ds = dateOf(wk), de = dateOf(end);
+    const range = (ds.getMonth() === de.getMonth() ? ds.getDate() : fmtDM.format(ds)) + ' – ' + fmtDM.format(de);
+    const isToday = viewDate === today;
+    const weekly = config.tasks.filter(t => t.kind === 'weekly' && isActive(t, viewDate));
+    let allFull = weekly.length > 0;
+    const rows = weekly.map(t => {
+      const ticks = weekTicks(t.id, viewDate);
+      const cnt = ticks.length, full = cnt >= t.target;
+      if (!full) allFull = false;
+      const marked = isDone(viewDate, t.id);
+      let pips = '';
+      for (let i = 0; i < t.target; i++) pips += '<span class="pip' + (i < cnt ? ' on' : '') + '"></span>';
+      const label = marked ? (isToday ? 'Сделано сегодня ✓' : 'Отмечено ✓') : (full ? 'Цель недели есть' : (isToday ? 'Отметить сегодня' : 'Отметить за ' + WD[wd(viewDate) - 1]));
+      const dis = full && !marked;
+      return '<div class="quest' + (full ? ' is-full' : '') + '">' +
+        '<div><div class="qtitle">' + esc(t.title) + '</div>' +
+        '<div class="qmeta"><span class="pips" aria-label="' + cnt + ' из ' + t.target + '">' + pips + '</span>' +
+        '<span class="mono">' + cnt + '/' + t.target + '</span>' +
+        '<span>+' + t.xp + ' XP за раз</span>' +
+        (ticks.length ? '<span>' + ticks.map(i => WD[i]).join(', ') + '</span>' : '') +
+        (full ? '<span class="status mono s-done">DONE</span>' : '') +
+        '</div></div>' +
+        '<button class="qbtn' + (marked ? ' on' : '') + '" data-action="toggle" data-id="' + esc(t.id) + '" aria-pressed="' + marked + '"' + (dis ? ' disabled' : '') + '>' + label + '</button>' +
+        '</div>';
+    }).join('');
+    $('weekly').innerHTML =
+      '<div class="card-head"><div><h2 id="wkTitle">Квесты недели</h2><div class="sub">' + range + '</div></div></div>' +
+      (weekly.length ? '<div class="qlist">' + rows + '</div>' : '<div class="empty">Недельных квестов пока нет. Добавь их через кнопку «Задачи».</div>') +
+      (weekly.length ? '<div class="wkbonus' + (allFull ? ' ok' : '') + '">' + (allFull ? 'Все квесты недели закрыты: +' + WEEK_BONUS + ' XP получено' : 'Закрой все квесты до воскресенья, чтобы получить +' + WEEK_BONUS + ' XP') + '</div>' : '');
+  }
+
+  function renderMap() {
+    const start = addDays(weekStart(today), -77);
+    const minDay = addDays(today, -BACK_DAYS);
+    let html = '<span></span>';
+    let lastMon = -1;
+    for (let w = 0; w < 12; w++) {
+      const d = dateOf(addDays(start, w * 7)), m = d.getMonth();
+      html += '<span class="ml">' + (m !== lastMon ? fmtMon.format(d).replace('.', '') : '') + '</span>';
+      lastMon = m;
+    }
+    for (let r = 0; r < 7; r++) {
+      html += '<span class="dl">' + (r % 2 === 0 ? WD[r] : '') + '</span>';
+      for (let w = 0; w < 12; w++) {
+        const k = addDays(start, w * 7 + r);
+        let cls = 'c-none', tip = fmtLong.format(dateOf(k));
+        if (k > today) cls = 'c-future';
+        else if (k >= stats.first) {
+          const i = stats.dayInfo[k];
+          if (i) {
+            if (i.ratio === null) cls = i.any ? 'c-2' : 'c-none';
+            else if (i.perfect) cls = 'c-perfect';
+            else if (i.ratio >= STREAK_RATIO) cls = 'c-2';
+            else if (i.ratio > 0) cls = 'c-1';
+            else cls = 'c-0';
+            if (i.sched) tip += ': ' + i.doneDaily + ' из ' + i.sched;
+          }
+        }
+        cls += (k === today ? ' is-today' : '') + (k === viewDate ? ' is-view' : '');
+        const clickable = k >= minDay && k <= today;
+        html += clickable
+          ? '<button class="cell ' + cls + '" data-action="goDay" data-day="' + k + '" title="' + esc(tip) + '" aria-label="' + esc(tip) + '"></button>'
+          : '<span class="cell ' + cls + '" title="' + esc(tip) + '"></span>';
+      }
+    }
+    $('map').innerHTML =
+      '<div class="card-head"><div><h2 id="mapTitle">Карта прогонов</h2><div class="sub">12 недель · идеальных дней: ' + stats.perfectDays + ' · закрытых недель: ' + stats.perfectWeeks + '</div></div></div>' +
+      '<div class="heat">' + html + '</div>' +
+      '<div class="legend">' +
+        '<span class="lg"><span class="cell c-0"></span>провал</span>' +
+        '<span class="lg"><span class="cell c-1"></span>меньше половины</span>' +
+        '<span class="lg"><span class="cell c-2"></span>в серию</span>' +
+        '<span class="lg"><span class="cell c-perfect"></span>идеальный день</span>' +
+      '</div>';
+  }
+
+  function renderAch() {
+    const list = achList(stats);
+    const got = list.filter(a => a.ok).length;
+    $('ach').innerHTML =
+      '<div class="card-head"><div><h2 id="achTitle">Ачивки</h2><div class="sub">Открыто ' + got + ' из ' + list.length + '</div></div></div>' +
+      '<ul class="achs">' + list.map(a =>
+        '<li class="ach' + (a.ok ? ' ok' : '') + '"><span class="medal mono">' + a.g + '</span><span><b>' + a.name + '</b><small>' + a.desc + '</small>' +
+        '<small class="prog">' + (a.ok ? 'Открыто' : Math.min(a.v, a.goal) + ' / ' + a.goal) + '</small></span></li>'
+      ).join('') + '</ul>';
+  }
+
+  // средний опыт в день за последние 14 дней (или с начала, если прошло меньше)
+  function pace() {
+    let sum = 0, n = 0;
+    for (let i = 1; i <= 14; i++) {             // только завершённые дни
+      const k = addDays(today, -i);
+      if (k < stats.first) break;
+      const info = stats.dayInfo[k];
+      if (info) sum += info.xp;
+      n++;
+    }
+    if (n) return sum / n;
+    const t = stats.dayInfo[today];             // самый первый день — берём сегодняшний результат
+    return t ? t.xp : 0;
+  }
+
+  function renderLevels(scroll) {
+    const s = stats, p = pace();
+    const maxL = Math.max(30, s.level + 6);
+    const nx = nextRankFor(s.level);
+    const toNext = s.need - s.into;
+    const perfectMax = dailyFor(config.tasks, today).reduce((a, t) => a + t.xp, 0) + PERFECT_BONUS;
+    const daysFor = n => p > 0 ? Math.ceil(n / p) : null;
+    const dTxt = n => { const d = daysFor(n); return d === null ? '' : ' · ≈' + d + ' ' + plural(d, 'день', 'дня', 'дней'); };
+    let rows = '';
+    for (let L = 1; L <= maxL; L++) {
+      const total = cumXp(L), rk = RANKS.find(r => r.lvl === L);
+      let cls = '', st;
+      if (L < s.level) { cls = 'done'; st = 'пройден'; }
+      else if (L === s.level) { cls = 'cur'; st = 'ты здесь · ' + nf.format(s.into) + ' / ' + nf.format(s.need) + '<span class="minibar"><i style="width:' + Math.round(s.into / s.need * 100) + '%"></i></span>'; }
+      else st = 'ещё ' + nf.format(total - s.xp) + ' XP' + dTxt(total - s.xp);
+      rows += '<tr class="' + cls + '"' + (L === s.level ? ' id="lvCur"' : '') + '>' +
+        '<td><span class="lv">' + L + '</span></td>' +
+        '<td>' + (rk ? '<span class="grade">' + rk.name + '</span>' : '') + '</td>' +
+        '<td class="num hide-sm">' + (L === 1 ? '—' : '+' + nf.format(stepXp(L - 1))) + '</td>' +
+        '<td class="num">' + nf.format(total) + '</td>' +
+        '<td class="st">' + st + '</td></tr>';
+    }
+    $('levelsBody').innerHTML =
+      '<div class="lvsum">' +
+        '<div class="stat"><div class="v">' + nf.format(s.xp) + ' <small>XP</small></div><div class="k">Всего опыта · ' + s.level + ' уровень</div></div>' +
+        '<div class="stat"><div class="v">' + nf.format(toNext) + ' <small>XP</small></div><div class="k">До ' + (s.level + 1) + ' уровня' + dTxt(toNext) + '</div></div>' +
+        (nx ? '<div class="stat"><div class="v">' + nf.format(cumXp(nx.lvl) - s.xp) + ' <small>XP</small></div><div class="k">До грейда ' + nx.name + dTxt(cumXp(nx.lvl) - s.xp) + '</div></div>'
+            : '<div class="stat"><div class="v">MAX</div><div class="k">Высший грейд взят</div></div>') +
+      '</div>' +
+      '<p class="rule" style="margin:0">Переход на каждый следующий уровень стоит на 50 XP больше предыдущего: 100, 150, 200 и так далее. ' +
+        'Идеальный день с текущими ежедневными задачами даёт до ' + perfectMax + ' XP. ' +
+        (p > 0 ? 'Твой средний темп сейчас — около ' + Math.round(p) + ' XP в день (по последним 14 дням), прогноз в днях считается по нему.' : 'Прогноз в днях появится, когда накопится немного истории.') +
+      '</p>' +
+      '<table class="lvtable"><thead><tr><th>Ур.</th><th>Грейд</th><th class="num hide-sm">Шаг</th><th class="num">Всего XP</th><th>Статус</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    if (scroll) { const c = $('lvCur'); if (c) c.scrollIntoView({ block:'center' }); }
+  }
+
+  function renderSync() {
+    let s = 'warn', t = 'Только это устройство';
+    if (gh) {
+      const pending = changeSeq !== syncedSeq;
+      if (syncing || (sync.state === 'saving')) { s = 'saving'; t = 'Синхронизация…'; }
+      else if (sync.state === 'error') { s = 'warn'; t = sync.err && sync.err.kind === 'offline' ? 'Нет сети · сохранено тут' : 'Ошибка GitHub'; }
+      else if (pending) { s = 'saving'; t = 'Жду отправки…'; }
+      else if (sync.state === 'ok') { s = 'ok'; t = 'Синхронизировано ' + fmtTime.format(new Date(sync.at)); }
+      else { s = 'saving'; t = 'Подключаюсь…'; }
+    }
+    $('sync').dataset.s = s;
+    $('syncText').textContent = t;
+    $('ghSyncNow').disabled = !gh;
+    $('ghDisconnect').disabled = !gh;
+  }
+
+  function showNote(text, kind, btn) {
+    $('noteText').textContent = text; $('note').dataset.k = kind || 'info';
+    $('noteBtn').textContent = btn || 'Подключить GitHub';
+    $('note').hidden = false;
+  }
+  function hideNote() { $('note').hidden = true; }
+  function toast(text, kind) {
+    const el = document.createElement('div');
+    el.className = 'toast' + (kind ? ' ' + kind : '');
+    el.textContent = text;
+    $('toasts').appendChild(el);
+    setTimeout(() => el.remove(), 3800);
+  }
+  function floatXp(rect, delta) {
+    if (!rect || reduceMotion) return;
+    const el = document.createElement('span');
+    el.className = 'xpfloat' + (delta < 0 ? ' neg' : '');
+    el.textContent = (delta > 0 ? '+' : '−') + Math.abs(delta) + ' XP';
+    el.style.left = Math.max(8, rect.right - 96) + 'px';
+    el.style.top = Math.max(8, rect.top - 4) + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1200);
+  }
+  function showLevelUp(level, rankChanged) {
+    const r = rankFor(level);
+    $('luNum').textContent = level;
+    $('luRank').textContent = r.name;
+    $('luText').textContent = rankChanged ? 'Повышение! Теперь твой грейд — ' + r.name + '.' : 'Новый уровень. До следующего — ' + nf.format(stepXp(level)) + ' XP.';
+    $('levelup').hidden = false;
+    const b = $('badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+    setTimeout(() => $('luBtn').focus(), 50);
+  }
+
+  /* ---------- действия ---------- */
+  function toggle(id, rect) {
+    const t = config.tasks.find(x => x.id === id);
+    if (!t) return;
+    const before = stats, key = viewDate;
+    const day = days[key] ? clone(days[key]) : { done:{}, off:{} };
+    day.done = day.done || {}; day.off = day.off || {};
+    const now = Date.now();
+    if (day.done[id]) { delete day.done[id]; day.off[id] = now; }
+    else {
+      if (t.kind === 'weekly' && weekTicks(id, key).length >= t.target) return;
+      day.done[id] = now; delete day.off[id];
+    }
+    days[key] = day;
+    changed();
+    render();
+    celebrate(before, stats, rect, key);
+  }
+
+  function celebrate(b, a, rect, key) {
+    const delta = a.xp - b.xp;
+    if (delta) floatXp(rect, delta);
+    const bi = b.dayInfo[key], ai = a.dayInfo[key];
+    if (ai && ai.perfect && !(bi && bi.perfect)) toast('Идеальный день: все задачи пройдены · +' + PERFECT_BONUS + ' XP', 'gold');
+    if (a.perfectWeeks > b.perfectWeeks) toast('Все квесты недели закрыты · +' + WEEK_BONUS + ' XP', 'gold');
+    const had = new Set(achList(b).filter(x => x.ok).map(x => x.id));
+    for (const x of achList(a)) if (x.ok && !had.has(x.id)) toast('Ачивка открыта: ' + x.name, 'pass');
+    if (a.level > b.level) showLevelUp(a.level, rankFor(a.level).name !== rankFor(b.level).name);
+  }
+
+  /* ---------- окна ---------- */
+  let lastFocus = null;
+  function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; document.body.style.overflow = 'hidden'; }
+  function closeSheet(id) { $(id).hidden = true; document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+
+  function openEditor() { draft = config.tasks.filter(t => !t.archivedAt).map(clone); renderEditor(); openSheet('sheet'); }
+  function closeEditor() { draft = null; closeSheet('sheet'); }
+  function renderEditor() {
+    const row = t => {
+      const set = t.days.length ? t.days : [1,2,3,4,5,6,7];
+      let ctrl;
+      if (t.kind === 'daily') {
+        ctrl = '<div class="chips" role="group" aria-label="Дни недели">' + WD.map((d, i) =>
+          '<button type="button" class="chip' + (set.indexOf(i + 1) !== -1 ? ' on' : '') + '" data-action="toggleDay" data-day="' + (i + 1) + '" aria-pressed="' + (set.indexOf(i + 1) !== -1) + '">' + d + '</button>').join('') + '</div>';
+      } else {
+        let o = '';
+        for (let n = 1; n <= 7; n++) o += '<option value="' + n + '"' + (n === t.target ? ' selected' : '') + '>' + n + ' ' + plural(n, 'раз', 'раза', 'раз') + ' в неделю</option>';
+        ctrl = '<label class="sr" for="eg-' + esc(t.id) + '">Сколько раз в неделю</label><select class="esel" id="eg-' + esc(t.id) + '" data-field="target">' + o + '</select>';
+      }
+      const opts = [5, 10, 15, 20, 25, 30, 50];
+      let xo = '';
+      for (const v of opts) xo += '<option value="' + v + '"' + (v === t.xp ? ' selected' : '') + '>+' + v + ' XP</option>';
+      if (opts.indexOf(t.xp) === -1) xo += '<option value="' + t.xp + '" selected>+' + t.xp + ' XP</option>';
+      return '<div class="erow" data-id="' + esc(t.id) + '">' +
+        '<label class="sr" for="et-' + esc(t.id) + '">Название задачи</label>' +
+        '<input class="einput" id="et-' + esc(t.id) + '" data-field="title" value="' + esc(t.title) + '" placeholder="Например: 30 минут задач по Java" maxlength="120">' +
+        '<div class="ectrls">' +
+          '<div class="seg" role="group" aria-label="Как часто"><button type="button" class="' + (t.kind === 'daily' ? 'on' : '') + '" data-action="setKind" data-kind="daily">Каждый день</button><button type="button" class="' + (t.kind === 'weekly' ? 'on' : '') + '" data-action="setKind" data-kind="weekly">За неделю</button></div>' +
+          ctrl +
+          '<label class="sr" for="ex-' + esc(t.id) + '">Опыт за выполнение</label><select class="esel" id="ex-' + esc(t.id) + '" data-field="xp">' + xo + '</select>' +
+          '<button type="button" class="del" data-action="delTask">Удалить</button>' +
+        '</div></div>';
+    };
+    const daily = draft.filter(t => t.kind === 'daily'), weekly = draft.filter(t => t.kind === 'weekly');
+    $('editorList').innerHTML =
+      '<div class="egroup"><h3>Ежедневные · ' + daily.length + '</h3>' + (daily.map(row).join('') || '<div class="empty">Пока пусто</div>') + '</div>' +
+      '<div class="egroup"><h3>Недельные · ' + weekly.length + '</h3>' + (weekly.map(row).join('') || '<div class="empty">Пока пусто</div>') + '</div>' +
+      '<p class="rule">Удалённая задача пропадёт из списка, но опыт за прошлые выполнения останется.</p>';
+  }
+  function draftTask(el) { const r = el.closest('.erow'); return r && draft ? draft.find(t => t.id === r.dataset.id) : null; }
+  function saveEditor() {
+    const cleaned = draft.map(t => Object.assign({}, t, { title: (t.title || '').trim() })).filter(t => t.title);
+    const keep = new Set(cleaned.map(t => t.id));
+    const archived = config.tasks.filter(t => t.archivedAt);
+    const removed = config.tasks
+      .filter(t => !t.archivedAt && !keep.has(t.id) && t.createdAt < today)
+      .map(t => Object.assign({}, t, { archivedAt: today }));
+    config = { u: Date.now(), tasks: cleaned.concat(removed, archived) };
+    changed();
+    closeEditor();
+    render();
+    toast('Список задач сохранён');
+  }
+
+  function openLevels() { renderLevels(false); openSheet('levels'); renderLevels(true); }
+  function openSync() {
+    $('ghOwner').value = gh ? gh.owner : $('ghOwner').value;
+    $('ghRepo').value = gh ? gh.repo : ($('ghRepo').value || 'questlog-data');
+    $('ghToken').value = gh ? gh.token : '';
+    setFormStatus(gh ? (sync.state === 'error' ? errText(sync.err) : 'Подключено: ' + gh.owner + '/' + gh.repo + '/' + DATA_PATH) : '', gh && sync.state === 'error' ? 'err' : 'ok');
+    $('importStatus').hidden = true; $('importConfirm').hidden = true; pendingImport = null;
+    openSheet('syncSheet');
+  }
+  function setFormStatus(text, kind) { const el = $('ghStatus'); el.hidden = !text; el.textContent = text; el.dataset.k = kind || ''; }
+
+  function exportJson() {
+    const blob = new Blob([JSON.stringify(payload(), null, 1)], { type:'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'questlog-' + today + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  function importFile(file) {
+    const st = $('importStatus');
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const d = JSON.parse(reader.result);
+        if (!d || !d.config || !Array.isArray(d.config.tasks)) throw new Error('bad');
+        pendingImport = d;
+        const n = Object.keys(d.days || {}).length;
+        st.hidden = false; st.dataset.k = '';
+        st.textContent = 'В файле ' + d.config.tasks.length + ' ' + plural(d.config.tasks.length, 'задача', 'задачи', 'задач') + ' и ' + n + ' ' + plural(n, 'день', 'дня', 'дней') + ' с отметками. Текущий прогресс будет заменён' + (gh ? ', в том числе в GitHub.' : '.');
+        $('importConfirm').hidden = false;
+      } catch (e) {
+        st.hidden = false; st.dataset.k = 'err'; st.textContent = 'Это не похоже на резервную копию трекера. Выбери файл questlog-….json.';
+      }
+    };
+    reader.readAsText(file);
+  }
+  function importApply() {
+    if (!pendingImport) return;
+    config = normalize(pendingImport.config); config.u = Date.now();
+    days = sanitizeDays(pendingImport.days);
+    pendingImport = null; forcePush = true;
+    changed(); render();
+    $('importConfirm').hidden = true;
+    const st = $('importStatus'); st.dataset.k = 'ok'; st.textContent = 'Прогресс загружен из файла.';
+  }
+
+  /* ---------- события ---------- */
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-action]');
+    if (!b) {
+      if (e.target === $('sheet')) closeEditor();
+      else if (e.target === $('levels')) closeSheet('levels');
+      else if (e.target === $('syncSheet')) closeSheet('syncSheet');
+      return;
+    }
+    const a = b.dataset.action;
+    if (a === 'toggle') toggle(b.dataset.id, b.getBoundingClientRect());
+    else if (a === 'prevDay') { const k = addDays(viewDate, -1); if (k >= addDays(today, -BACK_DAYS)) { viewDate = k; render(); } }
+    else if (a === 'nextDay') { if (viewDate < today) { viewDate = addDays(viewDate, 1); render(); } }
+    else if (a === 'toToday') { viewDate = today; render(); }
+    else if (a === 'goDay') { viewDate = b.dataset.day; render(); $('run').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' }); }
+    else if (a === 'closeLevelup') $('levelup').hidden = true;
+    else if (a === 'openEditor') openEditor();
+    else if (a === 'closeEditor') closeEditor();
+    else if (a === 'saveEditor') saveEditor();
+    else if (a === 'openLevels') openLevels();
+    else if (a === 'closeLevels') closeSheet('levels');
+    else if (a === 'openSync') openSync();
+    else if (a === 'closeSync') closeSheet('syncSheet');
+    else if (a === 'syncNow') { setFormStatus('Синхронизирую…'); syncNow().then(ok => setFormStatus(ok ? 'Готово: данные совпадают с GitHub.' : errText(sync.err), ok ? 'ok' : 'err')); }
+    else if (a === 'disconnect') { disconnect(); $('ghToken').value = ''; setFormStatus('Отключено. Прогресс остался на этом устройстве, данные в GitHub не тронуты.', 'ok'); }
+    else if (a === 'exportJson') exportJson();
+    else if (a === 'importApply') importApply();
+    else if (a === 'importCancel') { pendingImport = null; $('importConfirm').hidden = true; $('importStatus').hidden = true; $('importFile').value = ''; }
+    else if (a === 'addTask') {
+      const kind = b.dataset.kind === 'weekly' ? 'weekly' : 'daily';
+      const t = { id: uid(), title:'', kind, xp: kind === 'weekly' ? 20 : 10, target:1, days:[], createdAt: today };
+      draft.push(t); renderEditor();
+      const inp = document.getElementById('et-' + t.id); if (inp) { inp.focus(); inp.scrollIntoView({ block:'center' }); }
+    }
+    else if (a === 'setKind') { const t = draftTask(b); if (t) { t.kind = b.dataset.kind; renderEditor(); } }
+    else if (a === 'toggleDay') {
+      const t = draftTask(b); if (!t) return;
+      const n = Number(b.dataset.day);
+      let set = t.days.length ? t.days.slice() : [1,2,3,4,5,6,7];
+      set = set.indexOf(n) !== -1 ? set.filter(x => x !== n) : set.concat(n);
+      if (!set.length) return;
+      t.days = set.length === 7 ? [] : set.sort();
+      renderEditor();
+    }
+    else if (a === 'delTask') {
+      if (!b.classList.contains('confirm')) { b.classList.add('confirm'); b.textContent = 'Точно удалить?'; return; }
+      const r = b.closest('.erow'); draft = draft.filter(t => t.id !== r.dataset.id); renderEditor();
+    }
+  });
+  document.addEventListener('input', e => {
+    const f = e.target.dataset && e.target.dataset.field; if (!f || !draft) return;
+    const t = draftTask(e.target); if (!t) return;
+    if (f === 'title') t.title = e.target.value;
+  });
+  document.addEventListener('change', e => {
+    if (e.target.id === 'importFile') { if (e.target.files && e.target.files[0]) importFile(e.target.files[0]); return; }
+    const f = e.target.dataset && e.target.dataset.field; if (!f || !draft) return;
+    const t = draftTask(e.target); if (!t) return;
+    if (f === 'xp') t.xp = clampInt(e.target.value, 1, 100, 10);
+    if (f === 'target') t.target = clampInt(e.target.value, 1, 7, 1);
+  });
+  $('ghForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const owner = $('ghOwner').value.trim().replace(/^@/, '');
+    const repo = $('ghRepo').value.trim();
+    const token = $('ghToken').value.trim();
+    if (!/^[A-Za-z0-9-]+$/.test(owner)) return setFormStatus('Впиши логин GitHub: латиница, цифры и дефис.', 'err');
+    if (!/^[A-Za-z0-9._-]+$/.test(repo)) return setFormStatus('Впиши название репозитория, например questlog-data.', 'err');
+    if (!token) return setFormStatus('Вставь токен из GitHub.', 'err');
+    $('ghConnect').disabled = true; setFormStatus('Проверяю доступ к репозиторию…');
+    try {
+      const info = await connect(owner, repo, token);
+      setFormStatus('Подключено: ' + owner + '/' + repo + '/' + DATA_PATH + (info.private === false ? '. Внимание: репозиторий публичный, отметки увидят все. Лучше сделать его приватным в настройках репозитория.' : '. Отметки будут сохраняться в GitHub автоматически.'), info.private === false ? 'err' : 'ok');
+      toast('GitHub подключён', 'pass');
+    } catch (err) {
+      setFormStatus(errText(err), 'err');
+    } finally { $('ghConnect').disabled = false; }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!$('levelup').hidden) $('levelup').hidden = true;
+    else if (!$('sheet').hidden) closeEditor();
+    else if (!$('levels').hidden) closeSheet('levels');
+    else if (!$('syncSheet').hidden) closeSheet('syncSheet');
+  });
+  // подтянуть изменения с другого устройства, когда вкладка снова на экране
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { if (gh && Date.now() - lastPull > 15000) syncNow(); }
+    else if (gh && changeSeq !== syncedSeq) syncNow();
+  });
+  window.addEventListener('online', () => { if (gh) syncNow(); });
+  setInterval(() => {
+    const k = keyOf(new Date());
+    if (k !== today) { const wasToday = viewDate === today; today = k; if (wasToday) viewDate = k; render(); }
+    if (gh && document.visibilityState === 'visible' && !syncing && Date.now() - lastPull > 120000) syncNow();
+  }, 60000);
+
+  /* ---------- старт ---------- */
+  loadLocal();
+  render();
+  if (gh) syncNow();
+  else showNote('Сейчас прогресс хранится только на этом устройстве. Подключи свой GitHub-репозиторий, чтобы видеть его и на телефоне, и на ноутбуке.', 'info');
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
