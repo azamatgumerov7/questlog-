@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#131726" id="themeColor">
-<script>try{var t=localStorage.getItem('questlog-theme');if(t==='light'||t==='arcade'){document.documentElement.dataset.theme=t;}}catch(e){}</script>
+<script>try{var t=localStorage.getItem('questlog-theme');if(['light','arcade','midnight','oled'].indexOf(t)>=0){document.documentElement.dataset.theme=t;}}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Квест-лог">
@@ -48,6 +48,28 @@
   --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
   --r:14px;
+  color-scheme:dark;
+}
+/* Тема «Полночь»: почти чёрная, с едва заметным холодным оттенком */
+html[data-theme="midnight"],[data-preview="midnight"]{
+  --bg:#08090D; --panel:#101218; --panel-2:#161922; --line:#232733; --text:#ECEEF4; --muted:#8A90A6;
+  --grid:rgba(255,255,255,.03);
+  --hud-a:#13151D; --hud-b:#0A0B10; --glow:rgba(244,183,64,.11);
+  --hover:#343a4d; --box:#3d4356; --track:#20232D; --ring-track:#1B1E27; --check:#08170F;
+  --cell:#14161D; --cell-future:#20232D; --c0:rgba(239,118,128,.32); --c1:rgba(53,212,154,.28); --c2:rgba(53,212,154,.62);
+  --toast:#171A23; --overlay:rgba(0,0,0,.72); --pill-bg:rgba(16,18,24,.85); --row-line:#1C1F28;
+  --badge-fill:#101218; --badge-inner:#232733;
+  color-scheme:dark;
+}
+/* Тема «Чёрная»: настоящий чёрный фон и нейтральные серые, экономит батарею на OLED-экранах */
+html[data-theme="oled"],[data-preview="oled"]{
+  --bg:#000000; --panel:#0B0B0D; --panel-2:#121215; --line:#1F1F24; --text:#F2F2F4; --muted:#8C8C96;
+  --grid:rgba(255,255,255,.028);
+  --hud-a:#0F0F12; --hud-b:#000000; --glow:rgba(244,183,64,.1);
+  --hover:#2E2E35; --box:#3A3A42; --track:#1D1D22; --ring-track:#1A1A1F; --check:#000000;
+  --cell:#111114; --cell-future:#1C1C21; --c0:rgba(239,118,128,.34); --c1:rgba(53,212,154,.28); --c2:rgba(53,212,154,.62);
+  --toast:#121215; --overlay:rgba(0,0,0,.8); --pill-bg:#0B0B0D; --row-line:#18181C;
+  --badge-fill:#0B0B0D; --badge-inner:#1F1F24;
   color-scheme:dark;
 }
 /* Тема «Светлый отчёт»: дневной режим, читается на солнце */
@@ -1278,7 +1300,9 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
 
   /* ---------- оформление ---------- */
   const THEMES = [
-    { id:'night',  name:'Ночная смена',  desc:'Тёмная, золото и зелёный. Спокойно для глаз вечером.', color:'#131726' },
+    { id:'night',  name:'Ночная смена',  desc:'Тёмно-синяя, золото и зелёный. Спокойно для глаз вечером.', color:'#131726' },
+    { id:'midnight', name:'Полночь',     desc:'Почти чёрная, с лёгким холодным оттенком. Темнее «Ночной смены».', color:'#08090D' },
+    { id:'oled',   name:'Чёрная',        desc:'Настоящий чёрный фон и серые панели. Самая тёмная, бережёт батарею на OLED.', color:'#000000' },
     { id:'light',  name:'Светлый отчёт', desc:'Светлая, как отчёт о тестах. Хорошо читается днём и на солнце.', color:'#F3F4F9' },
     { id:'arcade', name:'8-бит',         desc:'Ретро-аркада: пиксельный шрифт, квадратные кнопки и жёсткие тени.', color:'#170F2E' }
   ];
