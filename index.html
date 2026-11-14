@@ -245,6 +245,14 @@ button.cell{cursor:pointer}
 .esel{min-height:36px;padding:6px 8px;border-radius:9px;border:1px solid var(--line);background:var(--bg);font-size:13px}
 .del{margin-left:auto;min-height:36px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:transparent;font-size:13px;color:var(--muted)}
 .del.confirm{border-color:var(--skip);color:var(--skip)}
+.delask{display:grid;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid rgba(239,118,128,.4);background:var(--skip-soft)}
+.delask p{margin:0;font-size:13px;font-weight:600}
+.delask small{font-size:12px;color:var(--muted)}
+.erow.arch{opacity:.85}
+.archline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.archline span{flex:1;min-width:180px;display:grid;gap:2px}
+.archline b{font-weight:500;font-size:14px}
+.archline small{font-size:12px;color:var(--muted)}
 
 /* levels sheet */
 .lvsum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -475,9 +483,12 @@ function computeStats(cfg, days, today) {
   const tasks = cfg.tasks || [];
   const byId = {};
   for (const t of tasks) byId[t.id] = t;
+  // Учёт начинается с первого дня, где есть хотя бы одна отметка: дни до него не считаются ни в серию, ни в провалы
   let first = today;
-  for (const t of tasks) if (t.createdAt && t.createdAt < first) first = t.createdAt;
-  for (const k of Object.keys(days)) if (k < first) first = k;
+  for (const k of Object.keys(days)) {
+    const dn = days[k] && days[k].done;
+    if (k < first && dn && Object.keys(dn).some(id => byId[id])) first = k;
+  }
   const floor = addDays(today, -1500);
   if (first < floor) first = floor;
 
@@ -592,6 +603,9 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   let days = {};
   let stats = null;
   let draft = null;
+  let draftRemoved = {};          // id -> 'archive' (убрать с сегодня) | 'purge' (стереть из истории)
+  let delAsk = new Set();         // задачи, для которых показан выбор способа удаления
+  let draftPurged = new Set();    // ранее удалённые задачи, которые стираем из истории
   let pendingImport = null;
 
   // синхронизация
@@ -664,6 +678,14 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     catch (e) { toast('Браузер не даёт сохранить данные. Проверь, не включён ли приватный режим.', 'warn'); }
   }
   function changed() { changeSeq++; saveLocal(); scheduleSync(); }
+  function tickCount(id) { let n = 0; for (const k of Object.keys(days)) if (days[k].done && days[k].done[id]) n++; return n; }
+  // Удалённая задача, которую ни разу не отмечали, не должна висеть в прошлых днях — стираем её совсем
+  function pruneArchived() {
+    const keep = config.tasks.filter(t => !t.archivedAt || tickCount(t.id) > 0);
+    if (keep.length === config.tasks.length) return false;
+    config = { u: Date.now(), tasks: keep };
+    return true;
+  }
 
   /* ---------- GitHub ---------- */
   const b64enc = str => { const bytes = new TextEncoder().encode(str); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(bin); };
@@ -728,6 +750,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
             config = m.config || config; days = m.days;
           }
         } else sha = null;
+        if (pruneArchived()) changeSeq++;
         lastPull = Date.now();
         saveLocal(); render();
         if (remote && changeSeq === syncedSeq) { ok = true; break; }
@@ -821,11 +844,11 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     const minDay = addDays(today, -BACK_DAYS);
     const items = sched.map(t => {
       const ok = isDone(viewDate, t.id);
-      const st = ok ? 'PASSED' : (isToday ? 'PENDING' : 'SKIPPED');
+      const st = ok ? 'PASSED' : (isToday ? 'PENDING' : (viewDate < stats.first ? 'NO RUN' : 'SKIPPED'));
       return '<li><button class="task' + (ok ? ' is-done' : '') + '" data-action="toggle" data-id="' + esc(t.id) + '" aria-pressed="' + ok + '">' +
         '<span class="box">' + CHECK + '</span>' +
         '<span class="tbody"><span class="ttitle">' + esc(t.title) + '</span><span class="tmeta">' + scheduleLabel(t) + '</span></span>' +
-        '<span class="tside"><span class="xp mono">+' + t.xp + ' XP</span><span class="status mono s-' + st.toLowerCase() + '">' + st + '</span></span>' +
+        '<span class="tside"><span class="xp mono">+' + t.xp + ' XP</span><span class="status mono s-' + st.toLowerCase().replace(' ', '') + '">' + st + '</span></span>' +
         '</button></li>';
     }).join('');
     $('run').innerHTML =
@@ -844,8 +867,9 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
       '</div>' +
       (sched.length ? '<ul class="tasks">' + items + '</ul>' : '<div class="empty">На этот день ежедневных задач нет. Добавь их через кнопку «Задачи».</div>') +
       (perfect ? '<div class="banner">' + FLAME('#F4B740') + 'Идеальный день: все задачи пройдены, +' + PERFECT_BONUS + ' XP бонусом</div>' : '') +
+      (!isToday && viewDate < stats.first ? '<p class="rule">Этот день до твоей первой отметки, поэтому он не считается: ни в серию, ни в провалы. Если отметишь здесь задачу, учёт начнётся с этого дня.</p>' : '') +
       (isToday ? '' : '<p class="rule">Забыл отметить вовремя? Прошлые ' + BACK_DAYS + ' дней можно поправить, опыт и серия пересчитаются.</p>') +
-      '<p class="rule">День идёт в серию, если пройдена хотя бы половина ежедневных задач. Все задачи дня — бонус +' + PERFECT_BONUS + ' XP.</p>';
+      '<p class="rule">День идёт в серию, если пройдена хотя бы половина ежедневных задач. Все задачи дня — бонус +' + PERFECT_BONUS + ' XP. Дни до первой отметки не считаются.</p>';
   }
 
   function weekTicks(id, anyDayOfWeek) {
@@ -1079,7 +1103,11 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; document.body.style.overflow = 'hidden'; }
   function closeSheet(id) { $(id).hidden = true; document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 
-  function openEditor() { draft = config.tasks.filter(t => !t.archivedAt).map(clone); renderEditor(); openSheet('sheet'); }
+  function openEditor() {
+    draft = config.tasks.filter(t => !t.archivedAt).map(clone);
+    draftRemoved = {}; delAsk = new Set(); draftPurged = new Set();
+    renderEditor(); openSheet('sheet');
+  }
   function closeEditor() { draft = null; closeSheet('sheet'); }
   function renderEditor() {
     const row = t => {
@@ -1105,23 +1133,48 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
           ctrl +
           '<label class="sr" for="ex-' + esc(t.id) + '">Опыт за выполнение</label><select class="esel" id="ex-' + esc(t.id) + '" data-field="xp">' + xo + '</select>' +
           '<button type="button" class="del" data-action="delTask">Удалить</button>' +
+        '</div>' +
+        (delAsk.has(t.id) ? delChoice(t) : '') +
+        '</div>';
+    };
+    const delChoice = t => {
+      const n = tickCount(t.id);
+      return '<div class="delask"><p>Задачу отмечали ' + n + ' ' + plural(n, 'раз', 'раза', 'раз') + '. Как убрать?</p>' +
+        '<div class="row">' +
+          '<button type="button" class="btn" data-action="delArchive">Только с сегодня</button>' +
+          '<button type="button" class="btn danger" data-action="delPurge">Стереть из истории</button>' +
+          '<button type="button" class="btn ghost" data-action="delCancel">Отмена</button>' +
+        '</div>' +
+        '<small>«Только с сегодня»: прошлые дни и опыт за неё останутся. «Стереть из истории»: задачи как будто не было — прошлые дни пересчитаются без неё, опыт за неё уберётся.</small></div>';
+    };
+    const archivedList = config.tasks.filter(t => t.archivedAt && !draftPurged.has(t.id));
+    const archRow = t => {
+      const n = tickCount(t.id);
+      return '<div class="erow arch" data-id="' + esc(t.id) + '"><div class="archline">' +
+        '<span><b>' + esc(t.title) + '</b><small>убрана с ' + fmtDM.format(dateOf(t.archivedAt)) + ' · отмечена ' + n + ' ' + plural(n, 'раз', 'раза', 'раз') + '</small></span>' +
+        '<button type="button" class="del" data-action="purgeArchived">Стереть из истории</button>' +
         '</div></div>';
     };
     const daily = draft.filter(t => t.kind === 'daily'), weekly = draft.filter(t => t.kind === 'weekly');
     $('editorList').innerHTML =
       '<div class="egroup"><h3>Ежедневные · ' + daily.length + '</h3>' + (daily.map(row).join('') || '<div class="empty">Пока пусто</div>') + '</div>' +
       '<div class="egroup"><h3>Недельные · ' + weekly.length + '</h3>' + (weekly.map(row).join('') || '<div class="empty">Пока пусто</div>') + '</div>' +
-      '<p class="rule">Удалённая задача пропадёт из списка, но опыт за прошлые выполнения останется.</p>';
+      (archivedList.length ? '<div class="egroup"><h3>Удалённые · ' + archivedList.length + '</h3>' +
+        '<p class="rule" style="margin:0">Эти задачи убраны только с даты удаления, а в прошлых днях они по-прежнему считаются. Если задачи на самом деле не было в твоих целях, сотри её из истории — прошлые дни пересчитаются без неё.</p>' +
+        archivedList.map(archRow).join('') + '</div>' : '') +
+      '<p class="rule">Задачу, которую ни разу не отмечали, удаление стирает полностью. Изменения применятся после «Сохранить».</p>';
   }
   function draftTask(el) { const r = el.closest('.erow'); return r && draft ? draft.find(t => t.id === r.dataset.id) : null; }
   function saveEditor() {
     const cleaned = draft.map(t => Object.assign({}, t, { title: (t.title || '').trim() })).filter(t => t.title);
     const keep = new Set(cleaned.map(t => t.id));
-    const archived = config.tasks.filter(t => t.archivedAt);
+    const archived = config.tasks.filter(t => t.archivedAt && !draftPurged.has(t.id));
     const removed = config.tasks
-      .filter(t => !t.archivedAt && !keep.has(t.id) && t.createdAt < today)
+      .filter(t => !t.archivedAt && !keep.has(t.id))
+      .filter(t => (draftRemoved[t.id] || (tickCount(t.id) ? 'archive' : 'purge')) === 'archive')
       .map(t => Object.assign({}, t, { archivedAt: today }));
     config = { u: Date.now(), tasks: cleaned.concat(removed, archived) };
+    draftRemoved = {}; delAsk = new Set(); draftPurged = new Set();
     changed();
     closeEditor();
     render();
@@ -1220,8 +1273,21 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
       renderEditor();
     }
     else if (a === 'delTask') {
+      const id = b.closest('.erow').dataset.id;
+      const saved = config.tasks.some(t => t.id === id);
+      if (saved && tickCount(id) > 0) { delAsk.add(id); renderEditor(); return; }
       if (!b.classList.contains('confirm')) { b.classList.add('confirm'); b.textContent = 'Точно удалить?'; return; }
-      const r = b.closest('.erow'); draft = draft.filter(t => t.id !== r.dataset.id); renderEditor();
+      draftRemoved[id] = 'purge'; draft = draft.filter(t => t.id !== id); renderEditor();
+    }
+    else if (a === 'delArchive' || a === 'delPurge') {
+      const id = b.closest('.erow').dataset.id;
+      draftRemoved[id] = a === 'delPurge' ? 'purge' : 'archive';
+      delAsk.delete(id); draft = draft.filter(t => t.id !== id); renderEditor();
+    }
+    else if (a === 'delCancel') { delAsk.delete(b.closest('.erow').dataset.id); renderEditor(); }
+    else if (a === 'purgeArchived') {
+      if (!b.classList.contains('confirm')) { b.classList.add('confirm'); b.textContent = 'Точно стереть?'; return; }
+      draftPurged.add(b.closest('.erow').dataset.id); renderEditor();
     }
   });
   document.addEventListener('input', e => {
@@ -1274,6 +1340,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
 
   /* ---------- старт ---------- */
   loadLocal();
+  if (!gh && pruneArchived()) changed();
   render();
   if (gh) syncNow();
   else showNote('Сейчас прогресс хранится только на этом устройстве. Подключи свой GitHub-репозиторий, чтобы видеть его и на телефоне, и на ноутбуке.', 'info');
