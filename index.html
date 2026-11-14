@@ -365,6 +365,50 @@ button.cell{cursor:pointer}
 .box-sec h3{margin:0;font:600 14px var(--f-display)}
 .box-sec p{margin:0;font-size:13px;color:var(--muted)}
 
+/* вкладки и работа */
+.tabs{display:flex;gap:4px;padding:4px;border-radius:12px;border:1px solid var(--line);background:var(--panel);width:max-content;max-width:100%;box-shadow:var(--shadow)}
+.tabs button{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:14px;padding:8px 18px;border-radius:9px;min-height:38px;display:inline-flex;align-items:center;gap:8px}
+.tabs button[aria-selected="true"]{background:var(--gold-soft);color:var(--gold)}
+.tabcount{font:700 11px/1 var(--f-mono);background:var(--gold);color:var(--on-gold);padding:3px 6px;border-radius:999px}
+.view{display:grid;gap:16px}
+.wgroup{display:grid;gap:8px}
+.wgroup + .wgroup{margin-top:16px}
+.wgroup h3{margin:0;display:flex;align-items:center;gap:8px;font:700 11px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.wgroup h3 b{color:var(--text);font-weight:700}
+.jlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.jitem{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);box-shadow:var(--shadow)}
+.jitem.is-done{border-color:var(--pass-line);background:linear-gradient(90deg,var(--pass-soft),transparent)}
+.jitem.is-done .jsum{color:var(--muted)}
+.jcheck{border:0;background:none;padding:0;margin-top:1px}
+.jcheck:disabled{cursor:default;opacity:.7}
+.jitem.is-done .box,.jcheck.on .box{background:var(--pass);border-color:var(--pass)}
+.jitem.is-done .box svg,.jcheck.on .box svg{opacity:1;transform:none}
+.jhead{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.jkey{font:700 12px var(--f-mono);color:var(--gold);text-decoration:none}
+.jkey:hover{text-decoration:underline}
+.jsum{margin-top:4px;font-weight:500;overflow-wrap:anywhere}
+.jmeta{margin-top:4px;font-size:12px;color:var(--muted)}
+.jtag{font:700 10px/1 var(--f-mono);letter-spacing:.06em;padding:3px 6px;border-radius:5px;border:1px solid var(--line);color:var(--muted)}
+.jtag.free{color:var(--gold);border-color:var(--gold-line);border-style:dashed}
+.jtag.mine{color:var(--pass);border-color:var(--pass-line)}
+.jtag.prio-hi{color:var(--skip);border-color:var(--skip-line)}
+.jtag.src{color:var(--muted)}
+.jdel{margin-left:auto;border:0;background:none;color:var(--muted);font-size:18px;line-height:1;padding:0 4px;min-width:28px;min-height:28px}
+.jdel:hover{color:var(--skip)}
+.wsum{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.wsum span{font:600 12px/1 var(--f-mono);padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2)}
+.wsum span b{color:var(--gold)}
+.wadd{display:flex;gap:8px}
+.wadd input{flex:1;min-width:0}
+.wsync{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.wsync .spacer{flex:1}
+.wsetup{display:grid;gap:10px;padding:14px;border-radius:12px;border:1px dashed var(--gold-line);background:var(--gold-soft);font-size:14px}
+.wsetup ol{margin:0;padding-left:20px;display:grid;gap:6px;color:var(--muted)}
+.wsetup b{color:var(--text)}
+.wmini{display:flex;flex-wrap:wrap;gap:8px}
+.wmini span{font:600 12px/1 var(--f-mono);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted)}
+.wmini span b{color:var(--text);font-size:14px;margin-right:4px}
+
 /* выбор стиля */
 .themes{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
 .tcard{display:grid;gap:8px;align-content:start;text-align:left;padding:10px;border-radius:14px;border:2px solid var(--line);background:var(--panel-2);color:var(--text)}
@@ -453,6 +497,11 @@ html[data-theme="light"] .xpfloat{text-shadow:0 2px 10px rgba(255,255,255,.9)}
 
   <div class="note" id="note" hidden><span id="noteText"></span><button class="btn" id="noteBtn" data-action="openSync">Подключить GitHub</button></div>
 
+  <nav class="tabs" role="tablist" aria-label="Разделы">
+    <button role="tab" id="tabGame" data-action="tab" data-tab="game" aria-selected="true">Игра</button>
+    <button role="tab" id="tabWork" data-action="tab" data-tab="work" aria-selected="false">Работа <span class="tabcount" id="workCount" hidden></span></button>
+  </nav>
+
   <header class="hud">
     <button class="badge" id="badge" data-action="openLevels" aria-label="Открыть таблицу уровней">
       <svg viewBox="0 0 120 132" aria-hidden="true">
@@ -471,6 +520,7 @@ html[data-theme="light"] .xpfloat{text-shadow:0 2px 10px rgba(255,255,255,.9)}
     </div>
   </header>
 
+  <div id="gameView" class="view">
   <div class="stats" id="stats"></div>
 
   <div class="cols">
@@ -478,9 +528,22 @@ html[data-theme="light"] .xpfloat{text-shadow:0 2px 10px rgba(255,255,255,.9)}
       <section class="card" id="run" aria-labelledby="runTitle"></section>
     </div>
     <div class="col">
+      <section class="card" id="workMini" aria-labelledby="wmTitle"></section>
       <section class="card" id="weekly" aria-labelledby="wkTitle"></section>
       <section class="card" id="map" aria-labelledby="mapTitle"></section>
       <section class="card" id="ach" aria-labelledby="achTitle"></section>
+    </div>
+  </div>
+  </div>
+
+  <div id="workView" class="view" hidden>
+    <div class="cols">
+      <div class="col">
+        <section class="card" id="workDay" aria-labelledby="wdTitle"></section>
+      </div>
+      <div class="col">
+        <section class="card" id="workJira" aria-labelledby="wjTitle"></section>
+      </div>
     </div>
   </div>
 </main>
@@ -594,6 +657,8 @@ html[data-theme="light"] .xpfloat{text-shadow:0 2px 10px rgba(255,255,255,.9)}
 const PERFECT_BONUS = 20;   // бонус за день, где пройдены все ежедневные задачи
 const WEEK_BONUS = 30;      // бонус за неделю, где закрыты все недельные квесты
 const STREAK_RATIO = 0.5;   // день идёт в серию, если пройдена хотя бы половина ежедневных задач
+const WORK_JIRA_XP = 20;    // закрытая задача из Jira
+const WORK_XP = 10;         // своя рабочая задача
 const RANKS = [
   {lvl:1, name:'Trainee QA'},
   {lvl:3, name:'Junior QA'},
@@ -624,7 +689,7 @@ function levelOf(xp) {
 function rankFor(level) { let r = RANKS[0]; for (const x of RANKS) if (level >= x.lvl) r = x; return r; }
 function nextRankFor(level) { return RANKS.find(x => x.lvl > level) || null; }
 
-function computeStats(cfg, days, today) {
+function computeStats(cfg, days, today, jira) {
   const tasks = cfg.tasks || [];
   const byId = {};
   for (const t of tasks) byId[t.id] = t;
@@ -677,9 +742,38 @@ function computeStats(cfg, days, today) {
       xp += WEEK_BONUS; perfectWeeks++;
     }
   }
+  // Работа: задачи из Jira (отмеченные вручную или закрытые в Jira) и свои рабочие задачи.
+  // На серии и идеальные дни работа не влияет, только на опыт.
+  const workByDay = {}, workSeen = {};
+  const pushW = (k, rec) => (workByDay[k] || (workByDay[k] = [])).push(rec);
+  for (const k of Object.keys(days).sort()) {
+    if (k > today) continue;
+    const d = days[k], done = (d && d.done) || {};
+    for (const id of Object.keys(done)) {
+      if (id.indexOf('jira:') === 0) {
+        if (workSeen[id]) continue;
+        workSeen[id] = { day: k, src: 'manual' };
+        pushW(k, { id, src: 'manual', xp: WORK_JIRA_XP }); xp += WORK_JIRA_XP; doneTotal++;
+      } else if (id.indexOf('w:') === 0) {
+        const w = d.work && d.work[id];
+        if (!w || w.del) continue;
+        pushW(k, { id, src: 'custom', xp: WORK_XP }); xp += WORK_XP; doneTotal++;
+      }
+    }
+  }
+  const issues = jira && Array.isArray(jira.issues) ? jira.issues : [];
+  for (const it of issues) {
+    if (it.cat !== 'done' || !it.resolved || !it.mine) continue;
+    const id = 'jira:' + it.key;
+    if (workSeen[id] || it.resolved > today) continue;
+    const earn = it.resolved >= first;           // опыт — только с начала пользования трекером
+    workSeen[id] = { day: it.resolved, src: 'jira' };
+    pushW(it.resolved, { id, src: 'jira', xp: earn ? WORK_JIRA_XP : 0 });
+    if (earn) { xp += WORK_JIRA_XP; doneTotal++; }
+  }
   const lv = levelOf(xp);
   return { xp, level: lv.level, into: lv.into, need: lv.need, doneTotal, perfectDays, perfectWeeks,
-    streak: run, bestStreak: best, dayInfo, weekCounts, first };
+    streak: run, bestStreak: best, dayInfo, weekCounts, first, workByDay, workSeen };
 }
 
 // Слияние двух копий данных (с этого устройства и из GitHub): по каждой отметке побеждает более поздняя
@@ -693,6 +787,12 @@ function mergeDay(a, b) {
     const w = tb > ta ? b : a;
     if (w.done && w.done[id]) out.done[id] = w.done[id]; else if (w.off && w.off[id]) out.off[id] = w.off[id];
   });
+  const wa = a.work || {}, wb = b.work || {};
+  const wids = new Set([].concat(Object.keys(wa), Object.keys(wb)));
+  if (wids.size) {
+    out.work = {};
+    wids.forEach(id => { const x = wa[id], y = wb[id]; out.work[id] = !x ? y : !y ? x : ((y.u || 0) > (x.u || 0) ? y : x); });
+  }
   return out;
 }
 function mergeData(local, remote) {
@@ -733,6 +833,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const clone = o => JSON.parse(JSON.stringify(o));
   const uid = () => 't' + Math.random().toString(36).slice(2, 9);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
   const clampInt = (v, lo, hi, dflt) => { const n = parseInt(v, 10); return isNaN(n) ? dflt : Math.min(hi, Math.max(lo, n)); };
   const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : (a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many); };
   const nf = new Intl.NumberFormat('ru-RU');
@@ -753,6 +854,12 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   let days = {};
   let stats = null;
   let draft = null;
+  let jira = null;                 // данные из jira.json (пишет робот GitHub Actions)
+  let jiraInfo = { state:'none', err:null, at:0 };
+  let jiraMsg = '';
+  const LS_JIRA = 'questlog-jira-v1';
+  const JIRA_PATH = 'jira.json';
+  const view = () => (location.hash === '#work' ? 'work' : 'game');
   let draftRemoved = {};          // id -> 'archive' (убрать с сегодня) | 'purge' (стереть из истории)
   let delAsk = new Set();         // задачи, для которых показан выбор способа удаления
   let draftPurged = new Set();    // ранее удалённые задачи, которые стираем из истории
@@ -801,13 +908,34 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     if (o && typeof o === 'object') for (const id of Object.keys(o)) { const v = Number(o[id]); if (v > 0) out[String(id).slice(0, 40)] = v; }
     return out;
   }
+  function cleanWork(o) {
+    const out = {};
+    if (o && typeof o === 'object') for (const id of Object.keys(o)) {
+      if (!/^(w:|jira:)/.test(id) || !o[id] || typeof o[id] !== 'object') continue;
+      const w = { t: String(o[id].t || '').slice(0, 200), u: Number(o[id].u) || 0 };
+      if (o[id].del) w.del = 1;
+      out[id.slice(0, 60)] = w;
+    }
+    return out;
+  }
   function sanitizeDays(obj) {
     const out = {};
     if (obj && typeof obj === 'object') for (const k of Object.keys(obj)) {
       if (!DATE_RE.test(k)) continue;
       out[k] = { done: cleanStamps(obj[k] && obj[k].done), off: cleanStamps(obj[k] && obj[k].off) };
+      const w = cleanWork(obj[k] && obj[k].work);
+      if (Object.keys(w).length) out[k].work = w;
     }
     return out;
+  }
+  function sanitizeJira(d) {
+    const str = (v, n) => String(v == null ? '' : v).slice(0, n);
+    const issues = (Array.isArray(d.issues) ? d.issues : []).filter(i => i && /^[A-Z][A-Z0-9_]+-\d+$/.test(i.key) && ['ready','intest','done'].indexOf(i.cat) !== -1).map(i => ({
+      key: i.key, summary: str(i.summary, 300), status: str(i.status, 60), cat: i.cat, type: str(i.type, 40), priority: str(i.priority, 30),
+      tester: str(i.tester, 60), reporter: str(i.reporter, 60), mine: !!i.mine, resolved: DATE_RE.test(i.resolved) ? i.resolved : null
+    }));
+    const base = /^https:\/\/[^\s"'<>]+$/.test(d.baseUrl) ? d.baseUrl.replace(/\/$/, '') : '';
+    return { issues, baseUrl: base, me: str(d.me, 60), syncedAt: str(d.syncedAt, 30), error: d.error ? str(d.error, 400) : null };
   }
 
   /* ---------- локальное хранение ---------- */
@@ -841,7 +969,8 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   const b64enc = str => { const bytes = new TextEncoder().encode(str); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(bin); };
   const b64dec = b64 => { const bin = atob(String(b64).replace(/\s/g, '')); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new TextDecoder().decode(bytes); };
   const ghHeaders = g => ({ 'Authorization': 'Bearer ' + g.token, 'Accept': 'application/vnd.github+json' });
-  const fileUrl = g => 'https://api.github.com/repos/' + encodeURIComponent(g.owner) + '/' + encodeURIComponent(g.repo) + '/contents/' + DATA_PATH;
+  const repoUrl = g => 'https://api.github.com/repos/' + encodeURIComponent(g.owner) + '/' + encodeURIComponent(g.repo);
+  const fileUrl = g => repoUrl(g) + '/contents/' + DATA_PATH;
   function ghFail(status) { const e = new Error('GitHub ' + status); e.kind = status === 401 ? 'auth' : status === 403 ? 'forbidden' : status === 404 ? 'notfound' : 'http'; e.status = status; return e; }
   async function ghFetch(url, opts) {
     try { return await fetch(url, opts); }
@@ -933,11 +1062,55 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     try { localStorage.setItem(LS_GH, JSON.stringify(gh)); } catch (e) {}
     const ok = await syncNow();
     if (!ok) throw (sync.err || ghFail(0));
+    loadJira();
     return info;
   }
+  /* ---------- Jira (через jira.json в репозитории с данными) ---------- */
+  function loadJiraCache() {
+    try { const j = JSON.parse(localStorage.getItem(LS_JIRA) || 'null'); if (j && Array.isArray(j.issues)) jira = sanitizeJira(j); } catch (e) {}
+  }
+  async function loadJira() {
+    if (!gh) return null;
+    const g = gh;
+    try {
+      const r = await ghFetch(repoUrl(g) + '/contents/' + JIRA_PATH, { headers: ghHeaders(g), cache: 'no-store' });
+      if (g !== gh) return null;
+      if (r.status === 404) { jiraInfo = { state:'missing', err:null, at:Date.now() }; render(); return null; }
+      if (!r.ok) throw ghFail(r.status);
+      const j = await r.json();
+      jira = sanitizeJira(JSON.parse(b64dec(j.content)));
+      try { localStorage.setItem(LS_JIRA, JSON.stringify(jira)); } catch (e) {}
+      jiraInfo = { state:'ok', err:null, at:Date.now() };
+    } catch (e) { jiraInfo = { state:'error', err:e, at:Date.now() }; }
+    render();
+    return jira;
+  }
+  async function refreshJira() {
+    if (!gh) { openSync(); return; }
+    jiraMsg = 'Запускаю робота синхронизации…'; render();
+    let r;
+    try {
+      r = await ghFetch(repoUrl(gh) + '/actions/workflows/jira-sync.yml/dispatches', {
+        method:'POST', headers: Object.assign({ 'Content-Type':'application/json' }, ghHeaders(gh)), body: JSON.stringify({ ref:'main' }) });
+    } catch (e) { jiraMsg = 'Нет связи с GitHub. Попробуй ещё раз, когда появится интернет.'; render(); return; }
+    if (r.status === 403 || r.status === 404 || r.status === 401) {
+      jiraMsg = 'У токена GitHub нет права запускать робота. Добавь токену право Actions — Read and write для questlog-data или запусти «Синхронизация Jira» вручную во вкладке Actions репозитория.';
+      render(); return;
+    }
+    if (r.status !== 204) { jiraMsg = 'GitHub не запустил робота (ошибка ' + r.status + '). Попробуй чуть позже.'; render(); return; }
+    const before = jira && jira.syncedAt;
+    jiraMsg = 'Робот запущен, обычно это занимает до минуты…'; render();
+    for (let i = 0; i < 12; i++) {
+      await sleep(15000);
+      await loadJira();
+      if (jira && jira.syncedAt && jira.syncedAt !== before) { jiraMsg = ''; render(); toast('Задачи из Jira обновлены', 'pass'); return; }
+    }
+    jiraMsg = 'Робот отработал, но новых данных нет: задачи в Jira не поменялись.'; render();
+  }
+
   function disconnect() {
-    gh = null; sha = null;
-    try { localStorage.removeItem(LS_GH); } catch (e) {}
+    gh = null; sha = null; jira = null; jiraInfo = { state:'none', err:null, at:0 };
+    try { localStorage.removeItem(LS_GH); localStorage.removeItem(LS_JIRA); } catch (e) {}
     sync = { state:'local', at:0, err:null };
     saveLocal(); render();
     showNote('Сейчас прогресс хранится только на этом устройстве. Подключи свой GitHub-репозиторий, чтобы видеть его и на телефоне, и на ноутбуке.', 'info');
@@ -945,8 +1118,14 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
 
   /* ---------- отрисовка ---------- */
   function render() {
-    stats = computeStats(config, days, today);
-    renderHud(); renderStats(); renderRun(); renderWeekly(); renderMap(); renderAch(); renderSync();
+    stats = computeStats(config, days, today, jira);
+    const v = view();
+    $('gameView').hidden = v !== 'game'; $('workView').hidden = v !== 'work';
+    $('tabGame').setAttribute('aria-selected', v === 'game'); $('tabWork').setAttribute('aria-selected', v === 'work');
+    const open = jira ? jira.issues.filter(i => i.cat === 'intest' || (i.cat === 'ready' && i.mine)).length : 0;
+    $('workCount').hidden = !open; $('workCount').textContent = open;
+    renderHud(); renderWorkMini(); renderWork();
+    renderStats(); renderRun(); renderWeekly(); renderMap(); renderAch(); renderSync();
     if (!$('levels').hidden) renderLevels(false);
   }
 
@@ -1002,6 +1181,191 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     viewDate = k; ensureMapShows(k); render();
   }
 
+  const dateJumpHtml = id =>
+    '<span class="datejump"><button class="navbtn" data-action="pickDate" data-input="' + id + '" aria-label="Выбрать дату" title="Выбрать дату">' + CAL + '</button>' +
+    '<input type="date" id="' + id + '" tabindex="-1" aria-hidden="true" value="' + viewDate + '" min="' + navMin() + '" max="' + navMax() + '"></span>';
+  const dayNavHtml = id =>
+    '<div class="daynav">' +
+      '<button class="navbtn" data-action="prevDay" aria-label="Предыдущий день"' + (viewDate <= navMin() ? ' disabled' : '') + '>‹</button>' +
+      '<span class="daylabel">' + dayLabel(viewDate) + '</span>' +
+      '<button class="navbtn" data-action="nextDay" aria-label="Следующий день"' + (viewDate >= navMax() ? ' disabled' : '') + '>›</button>' +
+      dateJumpHtml(id) +
+    '</div>' + (viewDate === today ? '' : '<button class="linkbtn" data-action="toToday">← к сегодня</button>');
+
+  /* ---------- работа ---------- */
+  const jiraBase = () => (jira && jira.baseUrl) || 'https://jira.predictor.su';
+  const jiraByKey = k => jira ? jira.issues.find(i => i.key === k) : null;
+  const isHiPrio = p => /highest|high|blocker|critical|высок|крит/i.test(p || '');
+  function workTitle(id, k) {
+    const w = days[k] && days[k].work && days[k].work[id];
+    if (id.indexOf('jira:') === 0) { const it = jiraByKey(id.slice(5)); return (it && it.summary) || (w && w.t) || ''; }
+    return (w && w.t) || '';
+  }
+  function jiraItemHtml(it, opts) {
+    const id = 'jira:' + it.key, seen = stats.workSeen[id];
+    const done = !!seen;
+    const canUntick = seen && seen.src === 'manual' && editable(seen.day);
+    const canTick = !seen && (editable(viewDate) || viewDate > today);
+    const btnDisabled = !(canUntick || canTick);
+    let tags = '';
+    if (opts.showOwner) tags += it.mine ? '<span class="jtag mine">МОЯ</span>' : '<span class="jtag free">СВОБОДНА</span>';
+    if (it.type) tags += '<span class="jtag">' + esc(it.type) + '</span>';
+    if (it.priority) tags += '<span class="jtag' + (isHiPrio(it.priority) ? ' prio-hi' : '') + '">' + esc(it.priority) + '</span>';
+    let meta = '';
+    if (seen) meta = seen.src === 'jira' ? 'Закрыта в Jira ' + fmtDM.format(dateOf(seen.day)) : 'Отмечена тобой ' + fmtDM.format(dateOf(seen.day));
+    else if (opts.showOwner && it.tester === '' && it.reporter === (jira && jira.me)) meta = 'Ты автор — задача засчитается тебе';
+    return '<li class="jitem' + (done ? ' is-done' : '') + '">' +
+      '<button class="jcheck" data-action="workToggle" data-id="' + esc(id) + '" aria-pressed="' + done + '" aria-label="Отметить ' + esc(it.key) + ' выполненной"' + (btnDisabled ? ' disabled' : '') + '><span class="box">' + CHECK + '</span></button>' +
+      '<div><div class="jhead"><a class="jkey" href="' + esc(jiraBase() + '/browse/' + it.key) + '" target="_blank" rel="noopener">' + esc(it.key) + '</a>' + tags + '</div>' +
+      '<div class="jsum">' + esc(it.summary) + '</div>' + (meta ? '<div class="jmeta">' + meta + '</div>' : '') + '</div></li>';
+  }
+  function renderWorkMini() {
+    const recs = stats.workByDay[today] || [];
+    const closed = recs.length;
+    if (!jira && !gh) {
+      $('workMini').innerHTML = '<div class="card-head"><div><h2 id="wmTitle">Работа</h2><div class="sub">Задачи из Jira и свои рабочие дела — на отдельной вкладке.</div></div><button class="btn" data-action="tab" data-tab="work">Открыть</button></div>';
+      return;
+    }
+    const iss = jira ? jira.issues : [];
+    const inTest = iss.filter(i => i.cat === 'intest').length;
+    const ready = iss.filter(i => i.cat === 'ready');
+    const free = ready.filter(i => !i.mine).length;
+    $('workMini').innerHTML =
+      '<div class="card-head"><div><h2 id="wmTitle">Работа сегодня</h2><div class="sub">' + (jira && jira.syncedAt ? 'Jira обновлена в ' + fmtTime.format(new Date(jira.syncedAt)) : 'Jira ещё не подключена') + '</div></div>' +
+      '<button class="btn" data-action="tab" data-tab="work">Открыть →</button></div>' +
+      '<div class="wmini">' +
+        '<span><b>' + inTest + '</b>в тесте</span>' +
+        '<span><b>' + ready.length + '</b>Ready for test' + (free ? ' · свободных ' + free : '') + '</span>' +
+        '<span><b>' + closed + '</b>закрыто сегодня</span>' +
+      '</div>';
+  }
+  function renderWork() {
+    if (view() !== 'work') return;
+    const k = viewDate, recs = stats.workByDay[k] || [];
+    const jiraDone = recs.filter(r => r.src !== 'custom');
+    const day = days[k] || {};
+    const custom = Object.keys(day.work || {}).filter(id => id.indexOf('w:') === 0 && !day.work[id].del)
+      .sort((a, b) => (day.work[a].u || 0) - (day.work[b].u || 0));
+    const xpDay = recs.reduce((a, r) => a + r.xp, 0);
+    const canEdit = editable(k), isFuture = k > today;
+    const jiraRows = jiraDone.map(r => {
+      const key = r.id.slice(5), it = jiraByKey(key);
+      const canUntick = r.src === 'manual' && canEdit;
+      return '<li class="jitem is-done">' +
+        '<button class="jcheck" data-action="workToggle" data-id="' + esc(r.id) + '" aria-pressed="true" aria-label="Снять отметку"' + (canUntick ? '' : ' disabled') + '><span class="box">' + CHECK + '</span></button>' +
+        '<div><div class="jhead"><a class="jkey" href="' + esc(jiraBase() + '/browse/' + key) + '" target="_blank" rel="noopener">' + esc(key) + '</a>' +
+        '<span class="jtag src">' + (r.src === 'jira' ? 'ИЗ JIRA' : 'ВРУЧНУЮ') + '</span>' + (r.xp ? '<span class="xp mono">+' + r.xp + ' XP</span>' : '') + '</div>' +
+        '<div class="jsum">' + esc(workTitle(r.id, k) || (it ? it.summary : '')) + '</div></div></li>';
+    }).join('');
+    const customRows = custom.map(id => {
+      const done = !!(day.done && day.done[id]);
+      return '<li class="jitem' + (done ? ' is-done' : '') + '">' +
+        '<button class="jcheck" data-action="workToggle" data-id="' + esc(id) + '" aria-pressed="' + done + '"' + (canEdit ? '' : ' disabled') + '><span class="box">' + CHECK + '</span></button>' +
+        '<div><div class="jhead"><span class="jsum" style="margin:0;flex:1">' + esc(day.work[id].t) + '</span>' + (done ? '<span class="xp mono">+' + WORK_XP + ' XP</span>' : '') +
+        ((canEdit || isFuture) ? '<button class="jdel" data-action="workDelete" data-id="' + esc(id) + '" aria-label="Удалить">×</button>' : '') + '</div></div></li>';
+    }).join('');
+    const canAdd = canEdit || isFuture;
+    $('workDay').innerHTML =
+      '<div class="card-head"><div><h2 id="wdTitle">Работа за день</h2>' + dayNavHtml('dateJumpW') + '</div></div>' +
+      '<div class="wsum"><span>Закрыто: <b>' + recs.filter(r => r.src !== 'custom' || (day.done && day.done[r.id])).length + '</b></span><span>Опыт: <b>+' + xpDay + ' XP</b></span></div>' +
+      '<div class="wgroup"><h3>Из Jira <b>' + jiraDone.length + '</b></h3>' +
+        (jiraRows ? '<ul class="jlist">' + jiraRows + '</ul>' : '<div class="empty">' + (isFuture ? 'Этот день ещё впереди.' : 'В этот день задач из Jira не закрыто.') + '</div>') + '</div>' +
+      '<div class="wgroup"><h3>Свои задачи <b>' + custom.length + '</b></h3>' +
+        (customRows ? '<ul class="jlist">' + customRows + '</ul>' : '') +
+        (canAdd ? '<form class="wadd" id="workAdd" autocomplete="off"><label class="sr" for="workInput">Новая рабочая задача</label>' +
+          '<input class="einput" id="workInput" maxlength="200" placeholder="' + (isFuture ? 'Что запланировано на этот день' : 'Что ещё сделал: созвон, тест-кейсы, ревью…') + '">' +
+          '<button class="btn primary" type="submit">Добавить</button></form>' +
+          '<p class="rule" style="margin:0">' + (isFuture ? 'На будущий день задача добавится как план.' : 'Добавленная задача сразу считается сделанной (+' + WORK_XP + ' XP). Сними галочку, если это план.') + '</p>'
+          : (customRows ? '' : '<div class="empty">Своих задач в этот день нет.</div>')) +
+      '</div>' +
+      (canEdit || isFuture ? '' : '<p class="rule">Этот день можно только посмотреть: отмечать можно сегодня и за последние ' + BACK_DAYS + ' дней.</p>');
+
+    // текущие задачи в Jira
+    let body = '';
+    if (!gh) {
+      body = '<div class="wsetup"><b>Сначала подключи GitHub</b><span>Задачи из Jira приходят через твой репозиторий questlog-data.</span><div><button class="btn primary" data-action="openSync">Подключить GitHub</button></div></div>';
+    } else if (!jira) {
+      body = jiraInfo.state === 'error' ? '<div class="wsetup"><b>Не получилось прочитать jira.json</b><span>' + esc(errText(jiraInfo.err)) + '</span></div>' :
+        '<div class="wsetup"><b>Подключи Jira (один раз, ~3 минуты)</b><ol>' +
+        '<li>В Jira: аватар → <b>Профиль</b> → <b>Personal Access Tokens</b> → <b>Create token</b>. Скопируй токен.</li>' +
+        '<li>В GitHub, репозиторий <b>questlog-data</b>: <b>Settings → Secrets and variables → Actions → New repository secret</b>. Name: <span class="mono">JIRA_TOKEN</span>, Secret: токен из Jira.</li>' +
+        '<li>Там же: <b>Actions → Синхронизация Jira → Run workflow</b>. Через минуту задачи появятся здесь.</li>' +
+        '<li>Чтобы работала кнопка «Обновить сейчас», добавь токену GitHub право <b>Actions — Read and write</b>.</li></ol>' +
+        '<div class="row"><a class="btn" href="https://github.com/' + esc(gh.owner + '/' + gh.repo) + '/settings/secrets/actions" target="_blank" rel="noopener">Открыть секреты</a>' +
+        '<button class="btn" data-action="jiraReload">Проверить ещё раз</button></div></div>';
+    } else {
+      const inTest = jira.issues.filter(i => i.cat === 'intest');
+      const ready = jira.issues.filter(i => i.cat === 'ready').sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0));   // сначала мои, потом свободные
+      body =
+        (jira.error ? '<div class="note" data-k="warn" style="margin-bottom:14px"><span>Последняя синхронизация с ошибкой: ' + esc(jira.error) + '</span></div>' : '') +
+        '<div class="wgroup"><h3>In test · мои <b>' + inTest.length + '</b></h3>' +
+          (inTest.length ? '<ul class="jlist">' + inTest.map(i => jiraItemHtml(i, {})).join('') + '</ul>' : '<div class="empty">Сейчас ничего не тестируешь.</div>') + '</div>' +
+        '<div class="wgroup"><h3>Ready for test · свободные и мои <b>' + ready.length + '</b></h3>' +
+          (ready.length ? '<ul class="jlist">' + ready.map(i => jiraItemHtml(i, { showOwner:true })).join('') + '</ul>' : '<div class="empty">Очередь пуста.</div>') + '</div>';
+    }
+    $('workJira').innerHTML =
+      '<div class="card-head"><div><h2 id="wjTitle">Сейчас в Jira</h2><div class="sub">Галочка — отметить задачу закрытой ' + (editable(viewDate) ? (viewDate === today ? 'сегодня' : 'за ' + fmtDM.format(dateOf(viewDate))) : 'сегодня') + '. Ушедшие в «Готово» засчитаются сами.</div></div></div>' +
+      body +
+      (gh ? '<div class="wsync"><span>' + (jira && jira.syncedAt ? 'Данные Jira от ' + fmtDM.format(new Date(jira.syncedAt)) + ', ' + fmtTime.format(new Date(jira.syncedAt)) : 'Данных из Jira ещё нет') + '</span><span class="spacer"></span>' +
+        '<button class="btn" data-action="jiraRefresh">Обновить сейчас</button></div>' +
+        (jiraMsg ? '<p class="rule">' + esc(jiraMsg) + '</p>' : '') : '');
+  }
+
+  function workToggle(id, rect) {
+    const before = stats;
+    const seen = stats.workSeen[id];
+    let key;
+    if (id.indexOf('jira:') === 0 && seen) {
+      if (seen.src !== 'manual' || !editable(seen.day)) return;
+      key = seen.day;                                           // снимаем отметку там, где она стоит
+    } else if (id.indexOf('w:') === 0) {
+      key = viewDate;
+      if (!editable(key)) return;
+    } else {
+      key = editable(viewDate) ? viewDate : today;
+    }
+    const day = days[key] ? clone(days[key]) : { done:{}, off:{} };
+    day.done = day.done || {}; day.off = day.off || {};
+    const now = Date.now();
+    if (day.done[id]) { delete day.done[id]; day.off[id] = now; }
+    else {
+      day.done[id] = now; delete day.off[id];
+      if (id.indexOf('jira:') === 0) {
+        const it = jiraByKey(id.slice(5));
+        day.work = day.work || {};
+        day.work[id] = { t: it ? it.summary : id.slice(5), u: now };
+      }
+    }
+    days[key] = day;
+    changed(); render();
+    celebrate(before, stats, rect, key);
+  }
+  function workAdd(title) {
+    title = title.trim().slice(0, 200);
+    if (!title) return;
+    const key = viewDate;
+    if (!editable(key) && key <= today) return;
+    const before = stats, now = Date.now();
+    const id = 'w:' + Math.random().toString(36).slice(2, 10);
+    const day = days[key] ? clone(days[key]) : { done:{}, off:{} };
+    day.done = day.done || {}; day.off = day.off || {}; day.work = day.work || {};
+    day.work[id] = { t: title, u: now };
+    if (key <= today) day.done[id] = now;                       // прошедший/сегодняшний день — уже сделано, будущий — план
+    days[key] = day;
+    changed(); render();
+    const inp = $('workInput'); if (inp) inp.focus();
+    celebrate(before, stats, inp ? inp.getBoundingClientRect() : null, key);
+  }
+  function workDelete(id) {
+    const key = viewDate, day = days[key] ? clone(days[key]) : null;
+    if (!day || !day.work || !day.work[id]) return;
+    const now = Date.now();
+    day.work[id] = Object.assign({}, day.work[id], { u: now, del: 1 });
+    if (day.done && day.done[id]) { delete day.done[id]; day.off = day.off || {}; day.off[id] = now; }
+    days[key] = day;
+    changed(); render();
+  }
+
   function renderRun() {
     const sched = dailyFor(config.tasks, viewDate);
     const n = sched.filter(t => isDone(viewDate, t.id)).length;
@@ -1024,15 +1388,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     if (!isToday && !isFuture && viewDate < stats.first) note += '<p class="rule">Этот день до твоей первой отметки, поэтому он не считается: ни в серию, ни в провалы.' + (canEdit ? ' Если отметишь здесь задачу, учёт начнётся с этого дня.' : '') + '</p>';
     $('run').innerHTML =
       '<div class="card-head"><div>' +
-        '<h2 id="runTitle">Прогон дня</h2>' +
-        '<div class="daynav">' +
-          '<button class="navbtn" data-action="prevDay" aria-label="Предыдущий день"' + (viewDate <= navMin() ? ' disabled' : '') + '>‹</button>' +
-          '<span class="daylabel">' + dayLabel(viewDate) + '</span>' +
-          '<button class="navbtn" data-action="nextDay" aria-label="Следующий день"' + (viewDate >= navMax() ? ' disabled' : '') + '>›</button>' +
-          '<span class="datejump"><button class="navbtn" data-action="pickDate" aria-label="Выбрать дату" title="Выбрать дату">' + CAL + '</button>' +
-          '<input type="date" id="dateJump" tabindex="-1" aria-hidden="true" value="' + viewDate + '" min="' + navMin() + '" max="' + navMax() + '"></span>' +
-        '</div>' +
-        (isToday ? '' : '<button class="linkbtn" data-action="toToday">← к сегодня</button>') +
+        '<h2 id="runTitle">Прогон дня</h2>' + dayNavHtml('dateJump') +
         '</div>' +
         '<div class="ring" aria-label="Пройдено ' + n + ' из ' + sched.length + '"><svg viewBox="0 0 76 76">' +
           '<circle cx="38" cy="38" r="' + R + '" fill="none" style="stroke:var(--ring-track)" stroke-width="7"/>' +
@@ -1472,6 +1828,11 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     }
     const a = b.dataset.action;
     if (a === 'toggle') toggle(b.dataset.id, b.getBoundingClientRect());
+    else if (a === 'tab') { const t = b.dataset.tab === 'work' ? 'work' : 'game'; if (t === 'work') { location.hash = 'work'; } else { history.pushState(null, '', location.pathname + location.search); render(); } window.scrollTo(0, 0); if (t === 'work' && gh && Date.now() - jiraInfo.at > 30000) loadJira(); }
+    else if (a === 'workToggle') workToggle(b.dataset.id, b.getBoundingClientRect());
+    else if (a === 'workDelete') workDelete(b.dataset.id);
+    else if (a === 'jiraRefresh') refreshJira();
+    else if (a === 'jiraReload') loadJira();
     else if (a === 'prevDay') goTo(addDays(viewDate, -1));
     else if (a === 'nextDay') goTo(addDays(viewDate, 1));
     else if (a === 'toToday') { mapStart = defaultMapStart(); goTo(today); }
@@ -1480,7 +1841,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     else if (a === 'mapNext') { mapStart = addDays(mapStart, MAP_WEEKS * 7); renderMap(); }
     else if (a === 'mapToday') { mapStart = defaultMapStart(); renderMap(); }
     else if (a === 'pickDate') {
-      const inp = $('dateJump');
+      const inp = $(b.dataset.input || 'dateJump');
       try { inp.showPicker(); } catch (err) { inp.classList.add('show'); inp.focus(); }
     }
     else if (a === 'closeLevelup') $('levelup').hidden = true;
@@ -1539,13 +1900,19 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     if (f === 'title') t.title = e.target.value;
   });
   document.addEventListener('change', e => {
-    if (e.target.id === 'dateJump') { if (DATE_RE.test(e.target.value)) goTo(e.target.value); return; }
+    if (e.target.id === 'dateJump' || e.target.id === 'dateJumpW') { if (DATE_RE.test(e.target.value)) goTo(e.target.value); return; }
     if (e.target.id === 'importFile') { if (e.target.files && e.target.files[0]) importFile(e.target.files[0]); return; }
     const f = e.target.dataset && e.target.dataset.field; if (!f || !draft) return;
     const t = draftTask(e.target); if (!t) return;
     if (f === 'xp') t.xp = clampInt(e.target.value, 1, 100, 10);
     if (f === 'target') t.target = clampInt(e.target.value, 1, 7, 1);
   });
+  document.addEventListener('submit', e => {
+    if (e.target.id !== 'workAdd') return;
+    e.preventDefault();
+    const inp = $('workInput'); if (inp) { workAdd(inp.value); }
+  });
+  window.addEventListener('hashchange', () => render());
   $('ghForm').addEventListener('submit', async e => {
     e.preventDefault();
     const owner = $('ghOwner').value.trim().replace(/^@/, '');
@@ -1577,7 +1944,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   });
   // подтянуть изменения с другого устройства, когда вкладка снова на экране
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { if (gh && Date.now() - lastPull > 15000) syncNow(); }
+    if (document.visibilityState === 'visible') { if (gh && Date.now() - lastPull > 15000) { syncNow(); loadJira(); } }
     else if (gh && changeSeq !== syncedSeq) syncNow();
   });
   window.addEventListener('online', () => { if (gh) syncNow(); });
@@ -1585,14 +1952,16 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     const k = keyOf(new Date());
     if (k !== today) { const wasToday = viewDate === today; today = k; if (wasToday) { viewDate = k; ensureMapShows(k); } render(); }
     if (gh && document.visibilityState === 'visible' && !syncing && Date.now() - lastPull > 120000) syncNow();
+    if (gh && document.visibilityState === 'visible' && Date.now() - jiraInfo.at > 120000) loadJira();
   }, 60000);
 
   /* ---------- старт ---------- */
   applyThemeColor();
   loadLocal();
+  loadJiraCache();
   if (!gh && pruneArchived()) changed();
   render();
-  if (gh) syncNow();
+  if (gh) { syncNow(); loadJira(); }
   else showNote('Сейчас прогресс хранится только на этом устройстве. Подключи свой GitHub-репозиторий, чтобы видеть его и на телефоне, и на ноутбуке.', 'info');
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
