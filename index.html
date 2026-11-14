@@ -125,6 +125,15 @@ a{color:var(--gold)}
 .navbtn:disabled{opacity:.3}
 .daylabel{font-size:14px;font-weight:500;padding:0 4px;min-width:0}
 .linkbtn{background:none;border:0;padding:4px 6px;color:var(--gold);font-size:13px;font-weight:600;white-space:nowrap}
+.card-head .linkbtn{margin-top:6px;padding-left:0}
+.datejump{position:relative;flex:none}
+.datejump input{position:absolute;right:0;top:0;width:34px;height:34px;opacity:0;pointer-events:none;border:0;padding:0}
+.datejump input.show{position:static;opacity:1;pointer-events:auto;width:auto;height:34px;margin-left:6px;padding:0 6px;border:1px solid var(--line);border-radius:9px;background:var(--bg)}
+.s-planned{border-style:dashed;color:var(--muted)}
+.s-norun{color:var(--muted);opacity:.8}
+.mapnav{display:flex;align-items:center;gap:8px;margin:-4px 0 12px}
+.mapperiod{font-size:13px;color:var(--text);min-width:0;text-align:center;flex:1}
+.task:disabled{opacity:.75;cursor:default}
 .ring{position:relative;width:76px;height:76px;flex:none}
 .ring svg{width:100%;height:100%;transform:rotate(-90deg)}
 .ring .rv{position:absolute;inset:0;display:grid;place-items:center;font:600 16px/1 var(--f-display);font-variant-numeric:tabular-nums}
@@ -135,7 +144,6 @@ a{color:var(--gold)}
 .task{width:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;text-align:left;padding:12px 14px;min-height:58px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);transition:border-color .2s,background-color .2s,transform .12s}
 .task:hover:not(:disabled){border-color:#3c4570}
 .task:active:not(:disabled){transform:scale(.99)}
-.task:disabled{opacity:.6}
 .box{width:24px;height:24px;border-radius:7px;border:2px solid #4a5280;display:grid;place-items:center;transition:all .2s}
 .box svg{width:14px;height:14px;opacity:0;transform:scale(.4);transition:all .2s}
 .task.is-done{background:linear-gradient(90deg,var(--pass-soft),rgba(53,212,154,.03));border-color:rgba(53,212,154,.35)}
@@ -576,7 +584,9 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
 /*CORE-END*/
 
 (function () {
-  const BACK_DAYS = 7;
+  const BACK_DAYS = 7;          // отмечать можно сегодня и за последние 7 дней
+  const NAV_DAYS = 1100;        // листать можно примерно на 3 года назад и вперёд
+  const MAP_WEEKS = 12;
   const LS_DATA = 'questlog-data-v1';
   const LS_GH = 'questlog-github-v1';
   const DATA_PATH = 'data.json';
@@ -592,6 +602,8 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   const fmtLong = new Intl.DateTimeFormat('ru-RU', { weekday:'long', day:'numeric', month:'long' });
   const fmtDM = new Intl.DateTimeFormat('ru-RU', { day:'numeric', month:'long' });
   const fmtMon = new Intl.DateTimeFormat('ru-RU', { month:'short' });
+  const fmtFull = new Intl.DateTimeFormat('ru-RU', { weekday:'short', day:'numeric', month:'long', year:'numeric' });
+  const CAL = '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
   const fmtTime = new Intl.DateTimeFormat('ru-RU', { hour:'2-digit', minute:'2-digit' });
   const CHECK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="#10241b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const FLAME = c => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3.5 5 5.6 5 10.4A5 5 0 0 1 7 12.6c0-2 1-3.4 2.2-4.4.1 1.6.9 2.7 2 3.1C11 8.4 11.6 5 12 2z" fill="' + c + '"/></svg>';
@@ -599,6 +611,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
 
   let today = keyOf(new Date());
   let viewDate = today;
+  let mapStart = null;           // понедельник первой колонки карты прогонов
   let config = defaultConfig(today);
   let days = {};
   let stats = null;
@@ -823,7 +836,9 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   }
 
   function dayLabel(k) {
-    const s = fmtLong.format(dateOf(k));
+    let s = fmtLong.format(dateOf(k));
+    if (dateOf(k).getFullYear() !== dateOf(today).getFullYear()) s += ' ' + dateOf(k).getFullYear();
+    if (k === addDays(today, 1)) return 'Завтра, ' + s;
     if (k === today) return 'Сегодня, ' + s;
     if (k === addDays(today, -1)) return 'Вчера, ' + s;
     return s.charAt(0).toUpperCase() + s.slice(1);
@@ -834,41 +849,62 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     return t.days.slice().sort().map(n => WD[n - 1]).join(' · ');
   }
   const isDone = (k, id) => !!(days[k] && days[k].done && days[k].done[id]);
+  const navMin = () => addDays(today, -NAV_DAYS);
+  const navMax = () => addDays(today, NAV_DAYS);
+  const editable = k => k <= today && k >= addDays(today, -BACK_DAYS);
+  const defaultMapStart = () => addDays(weekStart(today), -9 * 7);      // сегодня в 10-й колонке, видно 2 недели вперёд
+  function ensureMapShows(k) {
+    if (!mapStart) mapStart = defaultMapStart();
+    const end = addDays(mapStart, MAP_WEEKS * 7 - 1);
+    if (k < mapStart) mapStart = weekStart(k);
+    else if (k > end) mapStart = addDays(weekStart(k), -(MAP_WEEKS - 1) * 7);
+  }
+  function goTo(k) {
+    if (k < navMin()) k = navMin();
+    if (k > navMax()) k = navMax();
+    viewDate = k; ensureMapShows(k); render();
+  }
 
   function renderRun() {
     const sched = dailyFor(config.tasks, viewDate);
     const n = sched.filter(t => isDone(viewDate, t.id)).length;
-    const isToday = viewDate === today;
+    const isToday = viewDate === today, isFuture = viewDate > today, canEdit = editable(viewDate);
     const R = 30, C = 2 * Math.PI * R, frac = sched.length ? n / sched.length : 0;
     const perfect = sched.length > 0 && n === sched.length;
-    const minDay = addDays(today, -BACK_DAYS);
     const items = sched.map(t => {
       const ok = isDone(viewDate, t.id);
-      const st = ok ? 'PASSED' : (isToday ? 'PENDING' : (viewDate < stats.first ? 'NO RUN' : 'SKIPPED'));
-      return '<li><button class="task' + (ok ? ' is-done' : '') + '" data-action="toggle" data-id="' + esc(t.id) + '" aria-pressed="' + ok + '">' +
+      const st = ok ? 'PASSED' : isFuture ? 'PLANNED' : isToday ? 'PENDING' : (viewDate < stats.first ? 'NO RUN' : 'SKIPPED');
+      return '<li><button class="task' + (ok ? ' is-done' : '') + '" data-action="toggle" data-id="' + esc(t.id) + '" aria-pressed="' + ok + '"' + (canEdit ? '' : ' disabled') + '>' +
         '<span class="box">' + CHECK + '</span>' +
         '<span class="tbody"><span class="ttitle">' + esc(t.title) + '</span><span class="tmeta">' + scheduleLabel(t) + '</span></span>' +
         '<span class="tside"><span class="xp mono">+' + t.xp + ' XP</span><span class="status mono s-' + st.toLowerCase().replace(' ', '') + '">' + st + '</span></span>' +
         '</button></li>';
     }).join('');
+    let note = '';
+    if (isFuture) note = '<p class="rule">Это план: так выглядит список задач на этот день сейчас. Отметить их можно, когда день наступит.</p>';
+    else if (!canEdit) note = '<p class="rule">Этот день можно только посмотреть: отмечать задачи можно сегодня и за последние ' + BACK_DAYS + ' дней.</p>';
+    else if (!isToday) note = '<p class="rule">Забыл отметить вовремя? Последние ' + BACK_DAYS + ' дней можно поправить, опыт и серия пересчитаются.</p>';
+    if (!isToday && !isFuture && viewDate < stats.first) note += '<p class="rule">Этот день до твоей первой отметки, поэтому он не считается: ни в серию, ни в провалы.' + (canEdit ? ' Если отметишь здесь задачу, учёт начнётся с этого дня.' : '') + '</p>';
     $('run').innerHTML =
       '<div class="card-head"><div>' +
         '<h2 id="runTitle">Прогон дня</h2>' +
         '<div class="daynav">' +
-          '<button class="navbtn" data-action="prevDay" aria-label="Предыдущий день"' + (viewDate <= minDay ? ' disabled' : '') + '>‹</button>' +
+          '<button class="navbtn" data-action="prevDay" aria-label="Предыдущий день"' + (viewDate <= navMin() ? ' disabled' : '') + '>‹</button>' +
           '<span class="daylabel">' + dayLabel(viewDate) + '</span>' +
-          '<button class="navbtn" data-action="nextDay" aria-label="Следующий день"' + (viewDate >= today ? ' disabled' : '') + '>›</button>' +
-          (isToday ? '' : '<button class="linkbtn" data-action="toToday">к сегодня</button>') +
-        '</div></div>' +
+          '<button class="navbtn" data-action="nextDay" aria-label="Следующий день"' + (viewDate >= navMax() ? ' disabled' : '') + '>›</button>' +
+          '<span class="datejump"><button class="navbtn" data-action="pickDate" aria-label="Выбрать дату" title="Выбрать дату">' + CAL + '</button>' +
+          '<input type="date" id="dateJump" tabindex="-1" aria-hidden="true" value="' + viewDate + '" min="' + navMin() + '" max="' + navMax() + '"></span>' +
+        '</div>' +
+        (isToday ? '' : '<button class="linkbtn" data-action="toToday">← к сегодня</button>') +
+        '</div>' +
         '<div class="ring" aria-label="Пройдено ' + n + ' из ' + sched.length + '"><svg viewBox="0 0 76 76">' +
           '<circle cx="38" cy="38" r="' + R + '" fill="none" stroke="#2D3454" stroke-width="7"/>' +
           '<circle cx="38" cy="38" r="' + R + '" fill="none" stroke="' + (perfect ? '#F4B740' : '#35D49A') + '" stroke-width="7" stroke-linecap="round" stroke-dasharray="' + C.toFixed(2) + '" stroke-dashoffset="' + (C * (1 - frac)).toFixed(2) + '"/>' +
-        '</svg><div class="rv"><div>' + n + '/' + sched.length + '<small>PASSED</small></div></div></div>' +
+        '</svg><div class="rv"><div>' + n + '/' + sched.length + '<small>' + (isFuture ? 'PLAN' : 'PASSED') + '</small></div></div></div>' +
       '</div>' +
       (sched.length ? '<ul class="tasks">' + items + '</ul>' : '<div class="empty">На этот день ежедневных задач нет. Добавь их через кнопку «Задачи».</div>') +
       (perfect ? '<div class="banner">' + FLAME('#F4B740') + 'Идеальный день: все задачи пройдены, +' + PERFECT_BONUS + ' XP бонусом</div>' : '') +
-      (!isToday && viewDate < stats.first ? '<p class="rule">Этот день до твоей первой отметки, поэтому он не считается: ни в серию, ни в провалы. Если отметишь здесь задачу, учёт начнётся с этого дня.</p>' : '') +
-      (isToday ? '' : '<p class="rule">Забыл отметить вовремя? Прошлые ' + BACK_DAYS + ' дней можно поправить, опыт и серия пересчитаются.</p>') +
+      note +
       '<p class="rule">День идёт в серию, если пройдена хотя бы половина ежедневных задач. Все задачи дня — бонус +' + PERFECT_BONUS + ' XP. Дни до первой отметки не считаются.</p>';
   }
 
@@ -881,7 +917,9 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   function renderWeekly() {
     const wk = weekStart(viewDate), end = addDays(wk, 6);
     const ds = dateOf(wk), de = dateOf(end);
-    const range = (ds.getMonth() === de.getMonth() ? ds.getDate() : fmtDM.format(ds)) + ' – ' + fmtDM.format(de);
+    const range = (ds.getMonth() === de.getMonth() ? ds.getDate() : fmtDM.format(ds)) + ' – ' + fmtDM.format(de) +
+      (de.getFullYear() !== dateOf(today).getFullYear() ? ' ' + de.getFullYear() : '') +
+      (wk === weekStart(today) ? ' · эта неделя' : wk > today ? ' · впереди' : '');
     const isToday = viewDate === today;
     const weekly = config.tasks.filter(t => t.kind === 'weekly' && isActive(t, viewDate));
     let allFull = weekly.length > 0;
@@ -892,8 +930,10 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
       const marked = isDone(viewDate, t.id);
       let pips = '';
       for (let i = 0; i < t.target; i++) pips += '<span class="pip' + (i < cnt ? ' on' : '') + '"></span>';
-      const label = marked ? (isToday ? 'Сделано сегодня ✓' : 'Отмечено ✓') : (full ? 'Цель недели есть' : (isToday ? 'Отметить сегодня' : 'Отметить за ' + WD[wd(viewDate) - 1]));
-      const dis = full && !marked;
+      const canEdit = editable(viewDate);
+      const label = marked ? (isToday ? 'Сделано сегодня ✓' : 'Отмечено ✓') : (full ? 'Цель недели есть' :
+        (viewDate > today ? 'Пока рано' : !canEdit ? 'Только просмотр' : isToday ? 'Отметить сегодня' : 'Отметить за ' + WD[wd(viewDate) - 1]));
+      const dis = !canEdit || (full && !marked);
       return '<div class="quest' + (full ? ' is-full' : '') + '">' +
         '<div><div class="qtitle">' + esc(t.title) + '</div>' +
         '<div class="qmeta"><span class="pips" aria-label="' + cnt + ' из ' + t.target + '">' + pips + '</span>' +
@@ -912,48 +952,67 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   }
 
   function renderMap() {
-    const start = addDays(weekStart(today), -77);
-    const minDay = addDays(today, -BACK_DAYS);
+    if (!mapStart) mapStart = defaultMapStart();
+    const start = mapStart, end = addDays(start, MAP_WEEKS * 7 - 1);
     let html = '<span></span>';
     let lastMon = -1;
-    for (let w = 0; w < 12; w++) {
+    for (let w = 0; w < MAP_WEEKS; w++) {
       const d = dateOf(addDays(start, w * 7)), m = d.getMonth();
-      html += '<span class="ml">' + (m !== lastMon ? fmtMon.format(d).replace('.', '') : '') + '</span>';
+      let lbl = '';
+      if (m !== lastMon) { lbl = fmtMon.format(d).replace('.', ''); if (m === 0 || w === 0) lbl += ' ' + String(d.getFullYear()).slice(2); }
+      html += '<span class="ml">' + lbl + '</span>';
       lastMon = m;
     }
     for (let r = 0; r < 7; r++) {
       html += '<span class="dl">' + (r % 2 === 0 ? WD[r] : '') + '</span>';
-      for (let w = 0; w < 12; w++) {
+      for (let w = 0; w < MAP_WEEKS; w++) {
         const k = addDays(start, w * 7 + r);
-        let cls = 'c-none', tip = fmtLong.format(dateOf(k));
-        if (k > today) cls = 'c-future';
-        else if (k >= stats.first) {
+        let cls = 'c-none', tip = fmtFull.format(dateOf(k));
+        if (k > today) {
+          cls = 'c-future';
+          const plan = dailyFor(config.tasks, k).length;
+          tip += plan ? ': запланировано ' + plan + ' ' + plural(plan, 'задача', 'задачи', 'задач') : ': задач нет';
+        } else if (k >= stats.first) {
           const i = stats.dayInfo[k];
           if (i) {
             if (i.ratio === null) cls = i.any ? 'c-2' : 'c-none';
             else if (i.perfect) cls = 'c-perfect';
             else if (i.ratio >= STREAK_RATIO) cls = 'c-2';
             else if (i.ratio > 0) cls = 'c-1';
-            else cls = 'c-0';
+            else cls = k === today ? 'c-none' : 'c-0';     // сегодняшний день ещё не закончен — не провал
             if (i.sched) tip += ': ' + i.doneDaily + ' из ' + i.sched;
           }
         }
         cls += (k === today ? ' is-today' : '') + (k === viewDate ? ' is-view' : '');
-        const clickable = k >= minDay && k <= today;
-        html += clickable
+        const inRange = k >= navMin() && k <= navMax();
+        html += inRange
           ? '<button class="cell ' + cls + '" data-action="goDay" data-day="' + k + '" title="' + esc(tip) + '" aria-label="' + esc(tip) + '"></button>'
-          : '<span class="cell ' + cls + '" title="' + esc(tip) + '"></span>';
+          : '<span class="cell ' + cls + '"></span>';
       }
     }
+    const showsToday = today >= start && today <= end;
+    const fs = dateOf(start), fe = dateOf(end);
+    const mon = d => fmtMon.format(d).replace('.', '');
+    const period = fs.getFullYear() === fe.getFullYear()
+      ? mon(fs) + ' – ' + mon(fe) + ' ' + fe.getFullYear()
+      : mon(fs) + ' ' + fs.getFullYear() + ' – ' + mon(fe) + ' ' + fe.getFullYear();
     $('map').innerHTML =
-      '<div class="card-head"><div><h2 id="mapTitle">Карта прогонов</h2><div class="sub">12 недель · идеальных дней: ' + stats.perfectDays + ' · закрытых недель: ' + stats.perfectWeeks + '</div></div></div>' +
+      '<div class="card-head"><div><h2 id="mapTitle">Карта прогонов</h2><div class="sub">идеальных дней: ' + stats.perfectDays + ' · закрытых недель: ' + stats.perfectWeeks + '</div></div></div>' +
+      '<div class="mapnav">' +
+        '<button class="navbtn" data-action="mapPrev" aria-label="Предыдущие 12 недель"' + (start <= navMin() ? ' disabled' : '') + '>‹</button>' +
+        '<span class="mapperiod mono">' + period + '</span>' +
+        '<button class="navbtn" data-action="mapNext" aria-label="Следующие 12 недель"' + (end >= navMax() ? ' disabled' : '') + '>›</button>' +
+        (showsToday ? '' : '<button class="linkbtn" data-action="mapToday">к сегодня</button>') +
+      '</div>' +
       '<div class="heat">' + html + '</div>' +
       '<div class="legend">' +
         '<span class="lg"><span class="cell c-0"></span>провал</span>' +
         '<span class="lg"><span class="cell c-1"></span>меньше половины</span>' +
         '<span class="lg"><span class="cell c-2"></span>в серию</span>' +
         '<span class="lg"><span class="cell c-perfect"></span>идеальный день</span>' +
-      '</div>';
+        '<span class="lg"><span class="cell c-future"></span>впереди</span>' +
+      '</div>' +
+      '<p class="rule">Нажми на любой квадрат, чтобы открыть этот день в «Прогоне дня».</p>';
   }
 
   function renderAch() {
@@ -1070,6 +1129,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
 
   /* ---------- действия ---------- */
   function toggle(id, rect) {
+    if (!editable(viewDate)) return;
     const t = config.tasks.find(x => x.id === id);
     if (!t) return;
     const before = stats, key = viewDate;
@@ -1239,10 +1299,17 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     }
     const a = b.dataset.action;
     if (a === 'toggle') toggle(b.dataset.id, b.getBoundingClientRect());
-    else if (a === 'prevDay') { const k = addDays(viewDate, -1); if (k >= addDays(today, -BACK_DAYS)) { viewDate = k; render(); } }
-    else if (a === 'nextDay') { if (viewDate < today) { viewDate = addDays(viewDate, 1); render(); } }
-    else if (a === 'toToday') { viewDate = today; render(); }
-    else if (a === 'goDay') { viewDate = b.dataset.day; render(); $('run').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' }); }
+    else if (a === 'prevDay') goTo(addDays(viewDate, -1));
+    else if (a === 'nextDay') goTo(addDays(viewDate, 1));
+    else if (a === 'toToday') { mapStart = defaultMapStart(); goTo(today); }
+    else if (a === 'goDay') { goTo(b.dataset.day); $('run').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' }); }
+    else if (a === 'mapPrev') { mapStart = addDays(mapStart, -MAP_WEEKS * 7); renderMap(); }
+    else if (a === 'mapNext') { mapStart = addDays(mapStart, MAP_WEEKS * 7); renderMap(); }
+    else if (a === 'mapToday') { mapStart = defaultMapStart(); renderMap(); }
+    else if (a === 'pickDate') {
+      const inp = $('dateJump');
+      try { inp.showPicker(); } catch (err) { inp.classList.add('show'); inp.focus(); }
+    }
     else if (a === 'closeLevelup') $('levelup').hidden = true;
     else if (a === 'openEditor') openEditor();
     else if (a === 'closeEditor') closeEditor();
@@ -1296,6 +1363,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     if (f === 'title') t.title = e.target.value;
   });
   document.addEventListener('change', e => {
+    if (e.target.id === 'dateJump') { if (DATE_RE.test(e.target.value)) goTo(e.target.value); return; }
     if (e.target.id === 'importFile') { if (e.target.files && e.target.files[0]) importFile(e.target.files[0]); return; }
     const f = e.target.dataset && e.target.dataset.field; if (!f || !draft) return;
     const t = draftTask(e.target); if (!t) return;
@@ -1320,6 +1388,10 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     } finally { $('ghConnect').disabled = false; }
   });
   document.addEventListener('keydown', e => {
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.altKey && !e.ctrlKey && !e.metaKey &&
+        $('sheet').hidden && $('levels').hidden && $('syncSheet').hidden && !/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) {
+      goTo(addDays(viewDate, e.key === 'ArrowLeft' ? -1 : 1)); return;
+    }
     if (e.key !== 'Escape') return;
     if (!$('levelup').hidden) $('levelup').hidden = true;
     else if (!$('sheet').hidden) closeEditor();
@@ -1334,7 +1406,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   window.addEventListener('online', () => { if (gh) syncNow(); });
   setInterval(() => {
     const k = keyOf(new Date());
-    if (k !== today) { const wasToday = viewDate === today; today = k; if (wasToday) viewDate = k; render(); }
+    if (k !== today) { const wasToday = viewDate === today; today = k; if (wasToday) { viewDate = k; ensureMapShows(k); } render(); }
     if (gh && document.visibilityState === 'visible' && !syncing && Date.now() - lastPull > 120000) syncNow();
   }, 60000);
 
