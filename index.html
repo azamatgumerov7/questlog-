@@ -43,6 +43,7 @@
   --cell:#1f2540; --cell-future:#262c48; --c0:rgba(239,118,128,.28); --c1:rgba(53,212,154,.28); --c2:rgba(53,212,154,.62);
   --toast:#262d4b; --overlay:rgba(10,12,22,.68); --pill-bg:rgba(27,32,52,.7); --row-line:rgba(45,52,84,.6);
   --badge-fill:#1B2034; --badge-inner:#2D3454;
+  --work:91,141,239;
   --shadow:none;
   --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
   --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -84,6 +85,7 @@ html[data-theme="light"],[data-preview="light"]{
   --cell:#E9ECF4; --cell-future:#D5DAE8; --c0:rgba(200,58,80,.32); --c1:rgba(14,148,102,.28); --c2:rgba(14,148,102,.72);
   --toast:#FFFFFF; --overlay:rgba(26,31,51,.35); --pill-bg:rgba(255,255,255,.85); --row-line:#E6E9F2;
   --badge-fill:#FFFFFF; --badge-inner:#E2E6F0;
+  --work:47,111,224;
   --shadow:0 1px 2px rgba(26,31,51,.05),0 6px 18px rgba(26,31,51,.05);
   color-scheme:light;
 }
@@ -99,6 +101,7 @@ html[data-theme="arcade"],[data-preview="arcade"]{
   --cell:#2A1C4E; --cell-future:#3A2868; --c0:rgba(255,77,141,.5); --c1:rgba(60,240,160,.35); --c2:rgba(60,240,160,.78);
   --toast:#2C1D52; --overlay:rgba(10,5,25,.75); --pill-bg:#22163F; --row-line:#3A2868;
   --badge-fill:#22163F; --badge-inner:#4A3384;
+  --work:77,215,255;
   --shadow:4px 4px 0 #0A0618;
   --f-display:"Press Start 2P","Courier New",monospace;
   --f-body:"JetBrains Mono",ui-monospace,Consolas,monospace;
@@ -409,6 +412,21 @@ button.cell{cursor:pointer}
 .wmini span{font:600 12px/1 var(--f-mono);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted)}
 .wmini span b{color:var(--text);font-size:14px;margin-right:4px}
 
+/* карта работы */
+.wcell{position:relative;display:grid;place-items:center}
+.wcell i{font:700 10px/1 var(--f-mono);font-style:normal;color:var(--text)}
+.cell.w-0{background:var(--cell);box-shadow:inset 0 0 0 1px var(--line)}
+.cell.w-we{background:repeating-linear-gradient(135deg,var(--cell) 0 3px,transparent 3px 6px);box-shadow:inset 0 0 0 1px var(--line)}
+.cell.w-1{background:rgba(var(--work),.32)}
+.cell.w-2{background:rgba(var(--work),.52)}
+.cell.w-3{background:rgba(var(--work),.74)}
+.cell.w-4{background:rgb(var(--work))}
+.cell.w-3 i,.cell.w-4 i{color:#fff}
+.legend .wcell{width:14px;height:14px}
+.wadd .esel{flex:none}
+.wxsel{min-height:30px;padding:2px 6px;font-size:12px}
+@media (max-width:560px){.wcell i{font-size:9px}.wadd{flex-wrap:wrap}.wadd input{flex-basis:100%}}
+
 /* выбор стиля */
 .themes{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
 .tcard{display:grid;gap:8px;align-content:start;text-align:left;padding:10px;border-radius:14px;border:2px solid var(--line);background:var(--panel-2);color:var(--text)}
@@ -540,6 +558,7 @@ html[data-theme="light"] .xpfloat{text-shadow:0 2px 10px rgba(255,255,255,.9)}
     <div class="cols">
       <div class="col">
         <section class="card" id="workDay" aria-labelledby="wdTitle"></section>
+        <section class="card" id="workMap" aria-labelledby="wmapTitle"></section>
       </div>
       <div class="col">
         <section class="card" id="workJira" aria-labelledby="wjTitle"></section>
@@ -689,6 +708,8 @@ function levelOf(xp) {
 function rankFor(level) { let r = RANKS[0]; for (const x of RANKS) if (level >= x.lvl) r = x; return r; }
 function nextRankFor(level) { return RANKS.find(x => x.lvl > level) || null; }
 
+const workXpOf = w => { const n = Number(w && w.xp); return n > 0 ? Math.min(100, Math.round(n)) : WORK_XP; };
+const jiraXpOf = cfg => { const n = Number(cfg && cfg.workJiraXp); return n > 0 ? Math.min(100, Math.round(n)) : WORK_JIRA_XP; };
 function computeStats(cfg, days, today, jira) {
   const tasks = cfg.tasks || [];
   const byId = {};
@@ -745,6 +766,7 @@ function computeStats(cfg, days, today, jira) {
   // Работа: задачи из Jira (отмеченные вручную или закрытые в Jira) и свои рабочие задачи.
   // На серии и идеальные дни работа не влияет, только на опыт.
   const workByDay = {}, workSeen = {};
+  const JX = jiraXpOf(cfg);
   const pushW = (k, rec) => (workByDay[k] || (workByDay[k] = [])).push(rec);
   for (const k of Object.keys(days).sort()) {
     if (k > today) continue;
@@ -753,11 +775,12 @@ function computeStats(cfg, days, today, jira) {
       if (id.indexOf('jira:') === 0) {
         if (workSeen[id]) continue;
         workSeen[id] = { day: k, src: 'manual' };
-        pushW(k, { id, src: 'manual', xp: WORK_JIRA_XP }); xp += WORK_JIRA_XP; doneTotal++;
+        pushW(k, { id, src: 'manual', xp: JX }); xp += JX; doneTotal++;
       } else if (id.indexOf('w:') === 0) {
         const w = d.work && d.work[id];
         if (!w || w.del) continue;
-        pushW(k, { id, src: 'custom', xp: WORK_XP }); xp += WORK_XP; doneTotal++;
+        const wx = workXpOf(w);
+        pushW(k, { id, src: 'custom', xp: wx }); xp += wx; doneTotal++;
       }
     }
   }
@@ -768,8 +791,8 @@ function computeStats(cfg, days, today, jira) {
     if (workSeen[id] || it.resolved > today) continue;
     const earn = it.resolved >= first;           // опыт — только с начала пользования трекером
     workSeen[id] = { day: it.resolved, src: 'jira' };
-    pushW(it.resolved, { id, src: 'jira', xp: earn ? WORK_JIRA_XP : 0 });
-    if (earn) { xp += WORK_JIRA_XP; doneTotal++; }
+    pushW(it.resolved, { id, src: 'jira', xp: earn ? JX : 0 });
+    if (earn) { xp += JX; doneTotal++; }
   }
   const lv = levelOf(xp);
   return { xp, level: lv.level, into: lv.into, need: lv.need, doneTotal, perfectDays, perfectWeeks,
@@ -887,9 +910,10 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
       w('weekplan', 'Спланировать неделю в TickTick', 1, 15)
     ]};
   }
+  const withSettings = (tasks, u) => { const c = { u, tasks }; if (config && config.workJiraXp) c.workJiraXp = config.workJiraXp; return c; };
   function normalize(cfg) {
     const list = cfg && Array.isArray(cfg.tasks) ? cfg.tasks : [];
-    return { u: Number(cfg && cfg.u) || 0, tasks: list.filter(t => t && t.id).map(t => {
+    const out = { u: Number(cfg && cfg.u) || 0, tasks: list.filter(t => t && t.id).map(t => {
       const o = {
         id: String(t.id).slice(0, 40),
         title: String(t.title || 'Без названия').slice(0, 120),
@@ -902,6 +926,8 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
       if (DATE_RE.test(t.archivedAt)) o.archivedAt = t.archivedAt;
       return o;
     })};
+    if (cfg && Number(cfg.workJiraXp) > 0) out.workJiraXp = clampInt(cfg.workJiraXp, 1, 100, 20);
+    return out;
   }
   function cleanStamps(o) {
     const out = {};
@@ -913,6 +939,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     if (o && typeof o === 'object') for (const id of Object.keys(o)) {
       if (!/^(w:|jira:)/.test(id) || !o[id] || typeof o[id] !== 'object') continue;
       const w = { t: String(o[id].t || '').slice(0, 200), u: Number(o[id].u) || 0 };
+      if (Number(o[id].xp) > 0) w.xp = clampInt(o[id].xp, 1, 100, 10);
       if (o[id].del) w.del = 1;
       out[id.slice(0, 60)] = w;
     }
@@ -961,7 +988,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   function pruneArchived() {
     const keep = config.tasks.filter(t => !t.archivedAt || tickCount(t.id) > 0);
     if (keep.length === config.tasks.length) return false;
-    config = { u: Date.now(), tasks: keep };
+    config = withSettings(keep, Date.now());
     return true;
   }
 
@@ -1178,7 +1205,13 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   function goTo(k) {
     if (k < navMin()) k = navMin();
     if (k > navMax()) k = navMax();
-    viewDate = k; ensureMapShows(k); render();
+    viewDate = k; ensureMapShows(k);
+    if (workMapStart) {
+      const end = addDays(workMapStart, MAP_WEEKS * 7 - 1);
+      if (k < workMapStart) workMapStart = weekStart(k);
+      else if (k > end) workMapStart = addDays(weekStart(k), -(MAP_WEEKS - 1) * 7);
+    }
+    render();
   }
 
   const dateJumpHtml = id =>
@@ -1193,6 +1226,9 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     '</div>' + (viewDate === today ? '' : '<button class="linkbtn" data-action="toToday">← к сегодня</button>');
 
   /* ---------- работа ---------- */
+  let lastWorkXp = WORK_XP;
+  let workMapStart = null;
+  const xpOptions = cur => { const o = [5, 10, 15, 20, 25, 30, 50]; if (o.indexOf(cur) === -1) o.push(cur); return o.sort((a, b) => a - b).map(v => '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>+' + v + ' XP</option>').join(''); };
   const jiraBase = () => (jira && jira.baseUrl) || 'https://jira.predictor.su';
   const jiraByKey = k => jira ? jira.issues.find(i => i.key === k) : null;
   const isHiPrio = p => /highest|high|blocker|critical|высок|крит/i.test(p || '');
@@ -1241,6 +1277,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   }
   function renderWork() {
     if (view() !== 'work') return;
+    renderWorkMap();
     const k = viewDate, recs = stats.workByDay[k] || [];
     const jiraDone = recs.filter(r => r.src !== 'custom');
     const day = days[k] || {};
@@ -1259,23 +1296,31 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     }).join('');
     const customRows = custom.map(id => {
       const done = !!(day.done && day.done[id]);
+      const wx = workXpOf(day.work[id]);
+      const xpCtl = (canEdit || isFuture)
+        ? '<label class="sr" for="wx-' + esc(id) + '">Опыт за задачу</label><select class="esel wxsel" id="wx-' + esc(id) + '" data-wxid="' + esc(id) + '">' + xpOptions(wx) + '</select>'
+        : '<span class="xp mono">+' + wx + ' XP</span>';
       return '<li class="jitem' + (done ? ' is-done' : '') + '">' +
-        '<button class="jcheck" data-action="workToggle" data-id="' + esc(id) + '" aria-pressed="' + done + '"' + (canEdit ? '' : ' disabled') + '><span class="box">' + CHECK + '</span></button>' +
-        '<div><div class="jhead"><span class="jsum" style="margin:0;flex:1">' + esc(day.work[id].t) + '</span>' + (done ? '<span class="xp mono">+' + WORK_XP + ' XP</span>' : '') +
-        ((canEdit || isFuture) ? '<button class="jdel" data-action="workDelete" data-id="' + esc(id) + '" aria-label="Удалить">×</button>' : '') + '</div></div></li>';
+        '<button class="jcheck" data-action="workToggle" data-id="' + esc(id) + '" aria-pressed="' + done + '" aria-label="' + (done ? 'Снять отметку' : 'Отметить сделанной') + '"' + (canEdit ? '' : ' disabled') + '><span class="box">' + CHECK + '</span></button>' +
+        '<div><div class="jhead"><span class="jsum" style="margin:0;flex:1">' + esc(day.work[id].t) + '</span>' + xpCtl +
+        ((canEdit || isFuture) ? '<button class="jdel" data-action="workDelete" data-id="' + esc(id) + '" aria-label="Удалить">×</button>' : '') + '</div>' +
+        '<div class="jmeta">' + (done ? 'Сделано' : isFuture ? 'План на этот день' : 'В плане — отметь, когда сделаешь') + '</div></div></li>';
     }).join('');
     const canAdd = canEdit || isFuture;
     $('workDay').innerHTML =
       '<div class="card-head"><div><h2 id="wdTitle">Работа за день</h2>' + dayNavHtml('dateJumpW') + '</div></div>' +
-      '<div class="wsum"><span>Закрыто: <b>' + recs.filter(r => r.src !== 'custom' || (day.done && day.done[r.id])).length + '</b></span><span>Опыт: <b>+' + xpDay + ' XP</b></span></div>' +
+      '<div class="wsum"><span>Закрыто: <b>' + recs.length + '</b></span>' +
+        (custom.length - custom.filter(id => day.done && day.done[id]).length ? '<span>В плане: <b>' + (custom.length - custom.filter(id => day.done && day.done[id]).length) + '</b></span>' : '') +
+        '<span>Опыт: <b>+' + xpDay + ' XP</b></span></div>' +
       '<div class="wgroup"><h3>Из Jira <b>' + jiraDone.length + '</b></h3>' +
         (jiraRows ? '<ul class="jlist">' + jiraRows + '</ul>' : '<div class="empty">' + (isFuture ? 'Этот день ещё впереди.' : 'В этот день задач из Jira не закрыто.') + '</div>') + '</div>' +
       '<div class="wgroup"><h3>Свои задачи <b>' + custom.length + '</b></h3>' +
         (customRows ? '<ul class="jlist">' + customRows + '</ul>' : '') +
         (canAdd ? '<form class="wadd" id="workAdd" autocomplete="off"><label class="sr" for="workInput">Новая рабочая задача</label>' +
-          '<input class="einput" id="workInput" maxlength="200" placeholder="' + (isFuture ? 'Что запланировано на этот день' : 'Что ещё сделал: созвон, тест-кейсы, ревью…') + '">' +
+          '<input class="einput" id="workInput" maxlength="200" placeholder="Задача на день: созвон, тест-кейсы, ревью…">' +
+          '<label class="sr" for="workXp">Опыт за задачу</label><select class="esel" id="workXp">' + xpOptions(lastWorkXp) + '</select>' +
           '<button class="btn primary" type="submit">Добавить</button></form>' +
-          '<p class="rule" style="margin:0">' + (isFuture ? 'На будущий день задача добавится как план.' : 'Добавленная задача сразу считается сделанной (+' + WORK_XP + ' XP). Сними галочку, если это план.') + '</p>'
+          '<p class="rule" style="margin:0">Задача попадёт в план дня. Отметь её галочкой, когда сделаешь, — получишь выбранный опыт.</p>'
           : (customRows ? '' : '<div class="empty">Своих задач в этот день нет.</div>')) +
       '</div>' +
       (canEdit || isFuture ? '' : '<p class="rule">Этот день можно только посмотреть: отмечать можно сегодня и за последние ' + BACK_DAYS + ' дней.</p>');
@@ -1308,7 +1353,83 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
       body +
       (gh ? '<div class="wsync"><span>' + (jira && jira.syncedAt ? 'Данные Jira от ' + fmtDM.format(new Date(jira.syncedAt)) + ', ' + fmtTime.format(new Date(jira.syncedAt)) : 'Данных из Jira ещё нет') + '</span><span class="spacer"></span>' +
         '<button class="btn" data-action="jiraRefresh">Обновить сейчас</button></div>' +
+        '<div class="wsync" style="border-top:0;margin-top:6px;padding-top:0"><label for="jiraXp">Опыт за закрытую задачу из Jira</label><span class="spacer"></span>' +
+        '<select class="esel" id="jiraXp">' + xpOptions(jiraXpOf(config)) + '</select></div>' +
         (jiraMsg ? '<p class="rule">' + esc(jiraMsg) + '</p>' : '') : '');
+  }
+
+  // Карта работы: цвет — сколько задач закрыто за день. Красного нет: день без закрытых задач просто пустой,
+  // выходные заштрихованы, а если в выходной что-то закрыто — он окрашивается как обычный день.
+  function workLevel(n) { return n >= 5 ? 4 : n >= 3 ? 3 : n; }
+  function renderWorkMap() {
+    if (!workMapStart) workMapStart = defaultMapStart();
+    const start = workMapStart, end = addDays(start, MAP_WEEKS * 7 - 1);
+    const cnt = k => (stats.workByDay[k] || []).length;
+    const known = Object.keys(stats.workByDay).sort();
+    const firstData = known.length ? known[0] : today;
+    let html = '<span></span>';
+    const labels = []; let lastMon = -1;
+    for (let w = 0; w < MAP_WEEKS; w++) {
+      const d = dateOf(addDays(start, w * 7)), m = d.getMonth();
+      labels[w] = m !== lastMon ? fmtMon.format(d).replace('.', '') + (m === 0 ? ' ' + String(d.getFullYear()).slice(2) : '') : '';
+      lastMon = m;
+    }
+    const nextLbl = labels.findIndex((l, i) => i > 0 && l);
+    if (nextLbl > 0 && nextLbl <= 2) labels[0] = '';
+    for (let w = 0; w < MAP_WEEKS; w++) html += '<span class="ml">' + labels[w] + '</span>';
+    for (let r = 0; r < 7; r++) {
+      html += '<span class="dl">' + (r % 2 === 0 ? WD[r] : '') + '</span>';
+      for (let w = 0; w < MAP_WEEKS; w++) {
+        const k = addDays(start, w * 7 + r), n = cnt(k), weekend = wd(k) >= 6;
+        let cls, tip = fmtFull.format(dateOf(k));
+        if (k > today) { cls = 'c-future'; tip += ': впереди'; }
+        else if (n) { cls = 'w-' + workLevel(n); tip += ': закрыто ' + n + ' ' + plural(n, 'задача', 'задачи', 'задач'); }
+        else if (k < firstData) { cls = weekend ? 'w-we' : 'c-none'; tip += ': нет данных'; }
+        else { cls = weekend ? 'w-we' : 'w-0'; tip += weekend ? ': выходной' : ': закрытых задач нет'; }
+        cls += (k === today ? ' is-today' : '') + (k === viewDate ? ' is-view' : '');
+        const inner = n ? '<i>' + n + '</i>' : '';
+        html += (k >= navMin() && k <= navMax())
+          ? '<button class="cell wcell ' + cls + '" data-action="goWorkDay" data-day="' + k + '" title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' + inner + '</button>'
+          : '<span class="cell wcell ' + cls + '">' + inner + '</span>';
+      }
+    }
+    // статистика
+    const sum = (from, to) => { let s = 0; for (let k = from; k <= to; k = addDays(k, 1)) s += cnt(k); return s; };
+    const week = sum(addDays(today, -6), today), month = sum(addDays(today, -29), today);
+    let wdays = 0, wsum = 0, best = 0, bestDay = null;
+    for (let i = 0; i < 30; i++) {
+      const k = addDays(today, -i); if (k < firstData) break;
+      const n = cnt(k);
+      if (wd(k) <= 5 && k !== today) { wdays++; wsum += n; }
+      if (n > best) { best = n; bestDay = k; }
+    }
+    const fs = dateOf(start), fe = dateOf(end), mon = d => fmtMon.format(d).replace('.', '');
+    const period = fs.getFullYear() === fe.getFullYear() ? mon(fs) + ' – ' + mon(fe) + ' ' + fe.getFullYear() : mon(fs) + ' ' + fs.getFullYear() + ' – ' + mon(fe) + ' ' + fe.getFullYear();
+    const showsToday = today >= start && today <= end;
+    $('workMap').innerHTML =
+      '<div class="card-head"><div><h2 id="wmapTitle">Карта работы</h2><div class="sub">Сколько задач закрыто за день: из Jira и свои</div></div></div>' +
+      '<div class="wsum">' +
+        '<span>За 7 дней: <b>' + week + '</b></span>' +
+        '<span>За 30 дней: <b>' + month + '</b></span>' +
+        '<span>В среднем в будни: <b>' + (wdays ? (Math.round(wsum / wdays * 10) / 10).toString().replace('.', ',') : '0') + '</b></span>' +
+        (best ? '<span>Рекорд: <b>' + best + '</b> · ' + fmtDM.format(dateOf(bestDay)) + '</span>' : '') +
+      '</div>' +
+      '<div class="mapnav">' +
+        '<button class="navbtn" data-action="wmapPrev" aria-label="Предыдущие 12 недель"' + (start <= navMin() ? ' disabled' : '') + '>‹</button>' +
+        '<span class="mapperiod mono">' + period + '</span>' +
+        '<button class="navbtn" data-action="wmapNext" aria-label="Следующие 12 недель"' + (end >= navMax() ? ' disabled' : '') + '>›</button>' +
+        (showsToday ? '' : '<button class="linkbtn" data-action="wmapToday">к сегодня</button>') +
+      '</div>' +
+      '<div class="heat">' + html + '</div>' +
+      '<div class="legend">' +
+        '<span class="lg"><span class="cell wcell w-0"></span>0</span>' +
+        '<span class="lg"><span class="cell wcell w-1"></span>1</span>' +
+        '<span class="lg"><span class="cell wcell w-2"></span>2</span>' +
+        '<span class="lg"><span class="cell wcell w-3"></span>3–4</span>' +
+        '<span class="lg"><span class="cell wcell w-4"></span>5+</span>' +
+        '<span class="lg"><span class="cell wcell w-we"></span>выходной</span>' +
+      '</div>' +
+      '<p class="rule">День без закрытых задач не считается провалом — задачи могут быть в работе. Нажми на квадрат, чтобы открыть день.</p>';
   }
 
   function workToggle(id, rect) {
@@ -1340,21 +1461,37 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     changed(); render();
     celebrate(before, stats, rect, key);
   }
-  function workAdd(title) {
+  function workAdd(title, xp) {
     title = title.trim().slice(0, 200);
     if (!title) return;
     const key = viewDate;
     if (!editable(key) && key <= today) return;
-    const before = stats, now = Date.now();
+    const now = Date.now();
     const id = 'w:' + Math.random().toString(36).slice(2, 10);
     const day = days[key] ? clone(days[key]) : { done:{}, off:{} };
     day.done = day.done || {}; day.off = day.off || {}; day.work = day.work || {};
-    day.work[id] = { t: title, u: now };
-    if (key <= today) day.done[id] = now;                       // прошедший/сегодняшний день — уже сделано, будущий — план
+    lastWorkXp = clampInt(xp, 1, 100, WORK_XP);
+    day.work[id] = { t: title, u: now, xp: lastWorkXp };     // добавляется в план, сделанной её отмечает галочка
     days[key] = day;
     changed(); render();
     const inp = $('workInput'); if (inp) inp.focus();
-    celebrate(before, stats, inp ? inp.getBoundingClientRect() : null, key);
+  }
+  function workSetXp(id, xp) {
+    const key = viewDate, day = days[key] ? clone(days[key]) : null;
+    if (!day || !day.work || !day.work[id]) return;
+    if (!editable(key) && key <= today) return;
+    const before = stats;
+    day.work[id] = Object.assign({}, day.work[id], { xp: clampInt(xp, 1, 100, WORK_XP), u: Date.now() });
+    days[key] = day;
+    changed(); render();
+    celebrate(before, stats, null, key);
+  }
+  function setJiraXp(xp) {
+    const before = stats;
+    config = Object.assign({}, config, { workJiraXp: clampInt(xp, 1, 100, WORK_JIRA_XP), u: Date.now() });
+    changed(); render();
+    celebrate(before, stats, null, today);
+    toast('Опыт за задачи из Jira: +' + config.workJiraXp + ' XP. Прошлые задачи пересчитаны.');
   }
   function workDelete(id) {
     const key = viewDate, day = days[key] ? clone(days[key]) : null;
@@ -1761,7 +1898,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
       .filter(t => !t.archivedAt && !keep.has(t.id))
       .filter(t => (draftRemoved[t.id] || (tickCount(t.id) ? 'archive' : 'purge')) === 'archive')
       .map(t => Object.assign({}, t, { archivedAt: today }));
-    config = { u: Date.now(), tasks: cleaned.concat(removed, archived) };
+    config = withSettings(cleaned.concat(removed, archived), Date.now());
     draftRemoved = {}; delAsk = new Set(); draftPurged = new Set();
     changed();
     closeEditor();
@@ -1830,6 +1967,10 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     if (a === 'toggle') toggle(b.dataset.id, b.getBoundingClientRect());
     else if (a === 'tab') { const t = b.dataset.tab === 'work' ? 'work' : 'game'; if (t === 'work') { location.hash = 'work'; } else { history.pushState(null, '', location.pathname + location.search); render(); } window.scrollTo(0, 0); if (t === 'work' && gh && Date.now() - jiraInfo.at > 30000) loadJira(); }
     else if (a === 'workToggle') workToggle(b.dataset.id, b.getBoundingClientRect());
+    else if (a === 'goWorkDay') { viewDate = b.dataset.day; render(); $('workDay').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' }); }
+    else if (a === 'wmapPrev') { workMapStart = addDays(workMapStart, -MAP_WEEKS * 7); renderWorkMap(); }
+    else if (a === 'wmapNext') { workMapStart = addDays(workMapStart, MAP_WEEKS * 7); renderWorkMap(); }
+    else if (a === 'wmapToday') { workMapStart = defaultMapStart(); renderWorkMap(); }
     else if (a === 'workDelete') workDelete(b.dataset.id);
     else if (a === 'jiraRefresh') refreshJira();
     else if (a === 'jiraReload') loadJira();
@@ -1900,6 +2041,9 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     if (f === 'title') t.title = e.target.value;
   });
   document.addEventListener('change', e => {
+    if (e.target.dataset && e.target.dataset.wxid) { workSetXp(e.target.dataset.wxid, e.target.value); return; }
+    if (e.target.id === 'jiraXp') { setJiraXp(e.target.value); return; }
+    if (e.target.id === 'workXp') { lastWorkXp = clampInt(e.target.value, 1, 100, WORK_XP); return; }
     if (e.target.id === 'dateJump' || e.target.id === 'dateJumpW') { if (DATE_RE.test(e.target.value)) goTo(e.target.value); return; }
     if (e.target.id === 'importFile') { if (e.target.files && e.target.files[0]) importFile(e.target.files[0]); return; }
     const f = e.target.dataset && e.target.dataset.field; if (!f || !draft) return;
@@ -1910,7 +2054,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   document.addEventListener('submit', e => {
     if (e.target.id !== 'workAdd') return;
     e.preventDefault();
-    const inp = $('workInput'); if (inp) { workAdd(inp.value); }
+    const inp = $('workInput'); if (inp) { workAdd(inp.value, $('workXp') ? $('workXp').value : WORK_XP); }
   });
   window.addEventListener('hashchange', () => render());
   $('ghForm').addEventListener('submit', async e => {
