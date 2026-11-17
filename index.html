@@ -412,6 +412,10 @@ button.cell{cursor:pointer}
 .wmini span{font:600 12px/1 var(--f-mono);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted)}
 .wmini span b{color:var(--text);font-size:14px;margin-right:4px}
 
+.wpush{display:grid;gap:10px;margin-top:16px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);font-size:14px}
+.wpush h3{margin:0;font:700 11px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.wpush b{color:var(--text)}
+
 /* карта работы */
 .wcell{position:relative;display:grid;place-items:center}
 .wcell i{font:700 10px/1 var(--f-mono);font-style:normal;color:var(--text)}
@@ -1355,7 +1359,126 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
         '<button class="btn" data-action="jiraRefresh">Обновить сейчас</button></div>' +
         '<div class="wsync" style="border-top:0;margin-top:6px;padding-top:0"><label for="jiraXp">Опыт за закрытую задачу из Jira</label><span class="spacer"></span>' +
         '<select class="esel" id="jiraXp">' + xpOptions(jiraXpOf(config)) + '</select></div>' +
-        (jiraMsg ? '<p class="rule">' + esc(jiraMsg) + '</p>' : '') : '');
+        (jiraMsg ? '<p class="rule">' + esc(jiraMsg) + '</p>' : '') + pushBlockHtml() : '');
+  }
+
+  /* ---------- push-уведомления на этом устройстве ---------- */
+  // Подписка хранится в push.json репозитория с данными; уведомления отправляет робот после каждой синхронизации с Jira.
+  let pushState = { status: 'unknown', msg: '' };   // unknown | unsupported | denied | off | on | busy
+  const PUSH_PATH = 'push.json';
+  const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && window.isSecureContext;
+  const b64u = buf => btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const b64uToBytes = s => { const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)); const a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; };
+  function deviceName() {
+    const ua = navigator.userAgent;
+    const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iPhone' : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : 'Устройство';
+    const br = /YaBrowser/.test(ua) ? 'Яндекс Браузер' : /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'браузер';
+    return os + ' · ' + br;
+  }
+  async function pushRefreshStatus() {
+    if (!pushSupported()) { pushState.status = 'unsupported'; return; }
+    if (Notification.permission === 'denied') { pushState.status = 'denied'; return; }
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg && await reg.pushManager.getSubscription();
+      pushState.status = sub ? 'on' : 'off';
+    } catch (e) { pushState.status = 'off'; }
+  }
+  function pushBlockHtml() {
+    const st = pushState.status;
+    let inner;
+    if (st === 'unsupported') inner = '<span>Здесь уведомления недоступны. Открой трекер в Chrome на телефоне или из приложения на рабочем столе (на iPhone — из приложения на экране «Домой»).</span>';
+    else if (st === 'denied') inner = '<span>Уведомления для этого сайта запрещены. Разреши их в настройках браузера (значок замка у адреса → Уведомления) и обнови страницу.</span>';
+    else if (st === 'on') inner = '<span><b>Включены на этом устройстве.</b> Придёт уведомление, когда в Ready for test появится новая задача.</span>' +
+      '<span class="row"><button class="btn" data-action="pushTest">Проверить</button><button class="btn ghost" data-action="pushOff">Выключить</button></span>';
+    else if (st === 'busy') inner = '<span>Подождите…</span>';
+    else inner = '<span>Получать уведомление, когда в Ready for test появляется новая задача — даже если приложение закрыто.</span>' +
+      '<span class="row"><button class="btn primary" data-action="pushOn">Включить уведомления</button></span>';
+    return '<div class="wpush"><h3>Уведомления</h3>' + inner + (pushState.msg ? '<p class="rule" style="margin:0">' + esc(pushState.msg) + '</p>' : '') + '</div>';
+  }
+  async function readPushFile() {
+    const r = await ghFetch(repoUrl(gh) + '/contents/' + PUSH_PATH, { headers: ghHeaders(gh), cache: 'no-store' });
+    if (r.status === 404) return { sha: null, data: null };
+    if (!r.ok) throw ghFail(r.status);
+    const j = await r.json();
+    return { sha: j.sha, data: JSON.parse(b64dec(j.content)) };
+  }
+  async function writePushFile(change, message) {
+    for (let i = 0; i < 4; i++) {
+      const cur = await readPushFile();
+      const next = await change(cur.data ? clone(cur.data) : null);
+      if (!next) return null;
+      const body = { message, content: b64enc(JSON.stringify(next, null, 1)) };
+      if (cur.sha) body.sha = cur.sha;
+      const r = await ghFetch(repoUrl(gh) + '/contents/' + PUSH_PATH, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/json' }, ghHeaders(gh)), body: JSON.stringify(body) });
+      if (r.ok) return next;
+      if (r.status !== 409 && r.status !== 422) throw ghFail(r.status);
+    }
+    throw ghFail(409);
+  }
+  async function newVapidKeys() {
+    const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+    const pub = await crypto.subtle.exportKey('raw', kp.publicKey);
+    const jwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
+    return { vapidPublic: b64u(pub), vapidPrivate: jwk.d };
+  }
+  async function pushOn() {
+    if (!gh) { openSync(); return; }
+    pushState = { status: 'busy', msg: '' }; render();
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { pushState = { status: perm === 'denied' ? 'denied' : 'off', msg: 'Без разрешения уведомления показать нельзя.' }; render(); return; }
+      const reg = await navigator.serviceWorker.ready;
+      // ключи VAPID: берём из push.json или создаём при первом включении
+      let cur = await readPushFile();
+      if (!cur.data || !cur.data.vapidPublic || !cur.data.vapidPrivate) {
+        const keys = await newVapidKeys();
+        await writePushFile(d => Object.assign({ subs: [] }, d || {}, d && d.vapidPublic && d.vapidPrivate ? {} : keys), 'Уведомления: ключи');
+        cur = await readPushFile();
+      }
+      const appKey = b64uToBytes(cur.data.vapidPublic);
+      let sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const old = sub.options && sub.options.applicationServerKey ? b64u(sub.options.applicationServerKey) : null;
+        if (old && old !== cur.data.vapidPublic) { await sub.unsubscribe(); sub = null; }
+      }
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
+      const j = sub.toJSON();
+      await writePushFile(d => {
+        d = d || { subs: [] };
+        d.subs = (d.subs || []).filter(x => x.endpoint !== j.endpoint);
+        d.subs.push({ endpoint: j.endpoint, keys: j.keys, device: deviceName(), added: new Date().toISOString(), welcomed: false });
+        return d;
+      }, 'Уведомления: включены на ' + deviceName());
+      pushState = { status: 'on', msg: 'Готово. Первое уведомление «Уведомления включены» придёт после ближайшего запуска робота.' };
+      render();
+      refreshJira();          // запускаем робота сразу, если у токена есть право Actions
+    } catch (e) {
+      pushState = { status: 'off', msg: 'Не получилось включить: ' + (e && e.kind ? errText(e) : (e && e.message) || 'ошибка браузера') };
+      render();
+    }
+  }
+  async function pushOff() {
+    pushState = { status: 'busy', msg: '' }; render();
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg && await reg.pushManager.getSubscription();
+      if (sub) {
+        const ep = sub.endpoint;
+        await sub.unsubscribe();
+        if (gh) await writePushFile(d => { if (!d) return null; d.subs = (d.subs || []).filter(x => x.endpoint !== ep); return d; }, 'Уведомления: выключены на ' + deviceName());
+      }
+      pushState = { status: 'off', msg: 'Уведомления на этом устройстве выключены.' };
+    } catch (e) { pushState = { status: 'on', msg: 'Не получилось выключить, попробуй ещё раз.' }; }
+    render();
+  }
+  async function pushTest() {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification('Квест-лог', { body: 'Так будут выглядеть уведомления о новых задачах.', icon: 'icon-192.png', badge: 'icon-192.png', tag: 'test' });
+      pushState.msg = 'Тестовое уведомление показано. Настоящие приходят от робота после синхронизации с Jira.';
+    } catch (e) { pushState.msg = 'Браузер не показал уведомление: проверь, что они разрешены.'; }
+    render();
   }
 
   // Карта работы: цвет — сколько задач закрыто за день. Красного нет: день без закрытых задач просто пустой,
@@ -1973,6 +2096,9 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     else if (a === 'wmapToday') { workMapStart = defaultMapStart(); renderWorkMap(); }
     else if (a === 'workDelete') workDelete(b.dataset.id);
     else if (a === 'jiraRefresh') refreshJira();
+    else if (a === 'pushOn') pushOn();
+    else if (a === 'pushOff') pushOff();
+    else if (a === 'pushTest') pushTest();
     else if (a === 'jiraReload') loadJira();
     else if (a === 'prevDay') goTo(addDays(viewDate, -1));
     else if (a === 'nextDay') goTo(addDays(viewDate, 1));
@@ -2107,7 +2233,8 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   render();
   if (gh) { syncNow(); loadJira(); }
   else showNote('Сейчас прогресс хранится только на этом устройстве. Подключи свой GitHub-репозиторий, чтобы видеть его и на телефоне, и на ноутбуке.', 'info');
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});
+  pushRefreshStatus().then(render);
 })();
 </script>
 </body>
