@@ -1139,6 +1139,31 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
     jiraMsg = 'Робот отработал, но новых данных нет: задачи в Jira не поменялись.'; render();
   }
 
+  // Тихий запуск робота при открытии приложения: не чаще раза в 15 минут с одного устройства.
+  // Расписание GitHub срабатывает нерегулярно, а так задачи свежие каждый раз, когда смотришь в трекер.
+  const LS_AUTO = 'questlog-jira-auto';
+  let autoRunning = false;
+  async function autoRefreshJira() {
+    if (!gh || autoRunning || document.visibilityState !== 'visible') return;
+    let last = 0;
+    try { last = Number(localStorage.getItem(LS_AUTO)) || 0; } catch (e) {}
+    if (Date.now() - last < 15 * 60000) return;
+    try { localStorage.setItem(LS_AUTO, String(Date.now())); } catch (e) {}
+    autoRunning = true;
+    try {
+      const r = await ghFetch(repoUrl(gh) + '/actions/workflows/jira-sync.yml/dispatches', {
+        method:'POST', headers: Object.assign({ 'Content-Type':'application/json' }, ghHeaders(gh)), body: JSON.stringify({ ref:'main' }) });
+      if (r.status !== 204) return;                  // нет права Actions или GitHub недоступен — остаётся обычное обновление
+      const before = JSON.stringify(jira && jira.issues);
+      for (let i = 0; i < 6; i++) {
+        await sleep(15000);
+        await loadJira();
+        if (JSON.stringify(jira && jira.issues) !== before) return;
+      }
+    } catch (e) { /* без сети — попробуем при следующем открытии */ }
+    finally { autoRunning = false; }
+  }
+
   function disconnect() {
     gh = null; sha = null; jira = null; jiraInfo = { state:'none', err:null, at:0 };
     try { localStorage.removeItem(LS_GH); localStorage.removeItem(LS_JIRA); } catch (e) {}
@@ -2214,7 +2239,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   });
   // подтянуть изменения с другого устройства, когда вкладка снова на экране
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { if (gh && Date.now() - lastPull > 15000) { syncNow(); loadJira(); } }
+    if (document.visibilityState === 'visible') { if (gh && Date.now() - lastPull > 15000) { syncNow(); loadJira().then(autoRefreshJira); } }
     else if (gh && changeSeq !== syncedSeq) syncNow();
   });
   window.addEventListener('online', () => { if (gh) syncNow(); });
@@ -2231,7 +2256,7 @@ const achList = s => ACH.map(a => { const r = a.f(s); return Object.assign({}, a
   loadJiraCache();
   if (!gh && pruneArchived()) changed();
   render();
-  if (gh) { syncNow(); loadJira(); }
+  if (gh) { syncNow(); loadJira().then(autoRefreshJira); }
   else showNote('Сейчас прогресс хранится только на этом устройстве. Подключи свой GitHub-репозиторий, чтобы видеть его и на телефоне, и на ноутбуке.', 'info');
   if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});
   pushRefreshStatus().then(render);
